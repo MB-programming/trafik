@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>سكانر الأسعار - ترافيك</title>
+  <title>سكانر - ترافيك</title>
   <style>
     :root {
       --primary: #2563eb;
@@ -17,205 +17,217 @@
       --muted:   #94a3b8;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Segoe UI', Tahoma, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100dvh;
-      display: flex;
-      flex-direction: column;
-    }
+    body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); color: var(--text); min-height: 100dvh; display: flex; flex-direction: column; }
 
     header {
       background: var(--card);
       border-bottom: 1px solid var(--border);
-      padding: 14px 18px;
-      display: flex;
-      align-items: center;
-      gap: 14px;
+      padding: 13px 16px;
+      display: flex; align-items: center; gap: 12px;
     }
-    header a {
-      color: var(--muted);
-      text-decoration: none;
-      font-size: 1.4rem;
-      line-height: 1;
-    }
-    header h1 { font-size: 1.1rem; }
+    header a { color: var(--muted); text-decoration: none; font-size: 1.3rem; }
+    header h1 { font-size: 1.05rem; flex: 1; }
 
-    /* Camera viewport */
+    /* Mode toggle */
+    .mode-toggle {
+      display: flex;
+      background: var(--bg);
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .mode-btn {
+      padding: 6px 14px;
+      font-size: .82rem;
+      font-weight: 600;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: .15s;
+    }
+    .mode-btn.active { background: var(--primary); color: #fff; }
+
+    /* Camera */
     .camera-wrap {
       position: relative;
-      width: 100%;
-      max-width: 640px;
+      width: 100%; max-width: 640px;
       margin: 0 auto;
-      flex: 1;
       background: #000;
       overflow: hidden;
+      flex: 1;
     }
-    #video {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
+    #video { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-    /* Scan line animation */
+    /* Scan line (barcode mode) */
     .scan-line {
       position: absolute;
-      left: 10%;
-      right: 10%;
+      left: 8%; right: 8%;
       height: 3px;
       background: linear-gradient(90deg, transparent, #22d3ee, transparent);
       border-radius: 2px;
-      animation: scan 2s ease-in-out infinite;
-      box-shadow: 0 0 12px #22d3ee88;
+      animation: scanAnim 2s ease-in-out infinite;
+      box-shadow: 0 0 10px #22d3ee88;
     }
-    @keyframes scan {
-      0%   { top: 20%; }
-      50%  { top: 78%; }
-      100% { top: 20%; }
-    }
+    @keyframes scanAnim { 0%,100%{top:20%} 50%{top:78%} }
 
-    /* Viewfinder corners */
-    .viewfinder {
+    /* Crosshair (image mode) */
+    .crosshair {
       position: absolute;
       inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       pointer-events: none;
     }
-    .corner {
-      position: absolute;
-      width: 28px;
-      height: 28px;
-      border-color: #22d3ee;
-      border-style: solid;
+    .crosshair-ring {
+      width: 160px; height: 160px;
+      border: 3px solid rgba(34,211,238,.8);
+      border-radius: 50%;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,.35);
+      animation: pulse-ring 2s ease-in-out infinite;
     }
-    .corner.tl { top: 18%; left: 8%;  border-width: 3px 0 0 3px; border-radius: 4px 0 0 0; }
-    .corner.tr { top: 18%; right: 8%; border-width: 3px 3px 0 0; border-radius: 0 4px 0 0; }
-    .corner.bl { bottom: 18%; left: 8%;  border-width: 0 0 3px 3px; border-radius: 0 0 0 4px; }
-    .corner.br { bottom: 18%; right: 8%; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
+    @keyframes pulse-ring {
+      0%,100% { transform: scale(1);   box-shadow: 0 0 0 9999px rgba(0,0,0,.35); }
+      50%      { transform: scale(1.06); box-shadow: 0 0 0 9999px rgba(0,0,0,.25); }
+    }
 
-    /* Canvas hidden — used for frame capture */
-    #canvas { display: none; }
+    .viewfinder { position: absolute; inset:0; pointer-events:none; }
+    .corner { position:absolute; width:26px; height:26px; border-color:#22d3ee; border-style:solid; }
+    .corner.tl { top:18%; left:7%;  border-width:3px 0 0 3px; border-radius:4px 0 0 0; }
+    .corner.tr { top:18%; right:7%; border-width:3px 3px 0 0; border-radius:0 4px 0 0; }
+    .corner.bl { bottom:18%; left:7%;  border-width:0 0 3px 3px; border-radius:0 0 0 4px; }
+    .corner.br { bottom:18%; right:7%; border-width:0 3px 3px 0; border-radius:0 0 4px 0; }
 
-    /* Result area */
+    #canvas { display:none; }
+
+    .cam-status {
+      position: absolute; top:10px; right:10px;
+      background: rgba(0,0,0,.55);
+      color: #e2e8f0; font-size:.75rem;
+      padding: 4px 10px; border-radius: 20px;
+    }
+
+    /* Capture button (image mode) */
+    .capture-btn {
+      position: absolute;
+      bottom: 18px;
+      left: 50%; transform: translateX(-50%);
+      width: 64px; height: 64px;
+      border-radius: 50%;
+      background: #fff;
+      border: 4px solid rgba(255,255,255,.5);
+      cursor: pointer;
+      display: none;
+      box-shadow: 0 4px 20px rgba(0,0,0,.4);
+    }
+    .capture-btn:active { transform: translateX(-50%) scale(.92); }
+    .capture-btn-inner {
+      width: 100%; height: 100%;
+      border-radius: 50%;
+      background: #fff;
+      transition: .1s;
+    }
+    .capture-btn:active .capture-btn-inner { background: #dbeafe; }
+
+    /* Processing indicator */
+    .processing {
+      position: absolute;
+      bottom: 18px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,.7);
+      color: #22d3ee;
+      padding: 8px 20px;
+      border-radius: 20px;
+      font-size: .88rem;
+      display: none;
+      white-space: nowrap;
+    }
+
+    /* Result panel */
     .result-panel {
       background: var(--card);
       border-top: 1px solid var(--border);
-      padding: 20px 18px;
-      min-height: 160px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      gap: 8px;
+      padding: 18px 16px;
+      min-height: 150px;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center; gap: 7px;
     }
-
-    .result-idle   { color: var(--muted); font-size: 1rem; }
-    .result-found  { }
+    .result-idle   { color: var(--muted); font-size: .97rem; }
+    .price-badge   { font-size: 2.6rem; font-weight: 900; color: #4ade80; line-height:1; }
+    .currency      { font-size: 1.3rem; color: #4ade80; font-weight: 700; }
+    .product-name  { font-size: 1.15rem; font-weight: 600; }
+    .barcode-label { font-size:.82rem; color:var(--muted); font-family:monospace; }
     .result-notfound { color: var(--warning); }
 
-    .price-badge {
-      font-size: 2.8rem;
-      font-weight: 900;
-      color: #4ade80;
-      line-height: 1;
+    .cat-pill {
+      display: inline-block; padding: 3px 12px; border-radius: 12px;
+      font-size: .8rem; font-weight: 700;
     }
-    .product-name {
-      font-size: 1.2rem;
-      font-weight: 600;
-      color: var(--text);
-    }
-    .barcode-label {
-      font-size: .85rem;
-      color: var(--muted);
-      font-family: monospace;
-      margin-top: 4px;
-    }
-    .currency { font-size: 1.4rem; color: #4ade80; font-weight: 700; }
+    .cat-غذائية  { background:#166534; color:#bbf7d0; }
+    .cat-سجاير   { background:#78350f; color:#fde68a; }
+    .cat-مشروبات { background:#1e3a8a; color:#bfdbfe; }
+    .cat-منوعات  { background:#4c1d95; color:#ddd6fe; }
 
-    .pulse {
-      animation: pop .3s ease;
-    }
-    @keyframes pop {
-      0%   { transform: scale(.8); opacity:.4; }
-      70%  { transform: scale(1.08); }
-      100% { transform: scale(1); opacity:1; }
-    }
+    .identified-as { font-size:.78rem; color:var(--muted); }
 
-    /* Manual barcode input */
+    .pop { animation: pop .3s ease; }
+    @keyframes pop { 0%{transform:scale(.8);opacity:.4} 70%{transform:scale(1.06)} 100%{transform:scale(1);opacity:1} }
+
+    /* Manual input */
     .manual-bar {
       background: var(--card);
       border-top: 1px solid var(--border);
-      padding: 12px 18px;
-      display: flex;
-      gap: 8px;
+      padding: 11px 14px;
+      display: flex; gap: 8px;
     }
     .manual-bar input {
-      flex: 1;
-      padding: 10px 12px;
+      flex:1; padding: 10px 12px;
       border-radius: 8px;
       border: 1px solid var(--border);
-      background: var(--bg);
-      color: var(--text);
-      font-size: 1rem;
+      background: var(--bg); color: var(--text);
+      font-size: .97rem;
     }
-    .manual-bar input:focus { outline: 2px solid var(--primary); border-color: transparent; }
+    .manual-bar input:focus { outline: 2px solid var(--primary); border-color:transparent; }
     .btn-lookup {
-      padding: 10px 18px;
-      background: var(--primary);
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      font-weight: 700;
-      cursor: pointer;
-      font-size: .95rem;
-    }
-    .btn-lookup:hover { background: #1d4ed8; }
-
-    .status-dot {
-      width: 10px; height: 10px;
-      border-radius: 50%;
-      display: inline-block;
-      background: var(--muted);
-      margin-left: 6px;
-    }
-    .status-dot.scanning { background: #22d3ee; animation: blink 1s infinite; }
-    .status-dot.found    { background: #4ade80; }
-    @keyframes blink { 50% { opacity: .3; } }
-
-    .cam-status {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      background: rgba(0,0,0,.55);
-      color: #e2e8f0;
-      font-size: .78rem;
-      padding: 4px 10px;
-      border-radius: 20px;
-      display: flex;
-      align-items: center;
+      padding: 10px 16px;
+      background: var(--primary); color:#fff;
+      border:none; border-radius:8px;
+      font-weight:700; cursor:pointer;
     }
   </style>
 </head>
 <body>
 
 <header>
-  <a href="/" title="رجوع">←</a>
+  <a href="/">←</a>
   <h1>📷 سكانر الأسعار</h1>
-  <span class="status-dot" id="statusDot"></span>
+  <div class="mode-toggle">
+    <button class="mode-btn active" id="btnBarcode" onclick="setMode('barcode')">باركود</button>
+    <button class="mode-btn"        id="btnImage"   onclick="setMode('image')">صورة</button>
+  </div>
 </header>
 
-<div class="camera-wrap">
+<div class="camera-wrap" id="cameraWrap">
   <video id="video" autoplay playsinline muted></video>
   <canvas id="canvas"></canvas>
-  <div class="viewfinder">
-    <div class="corner tl"></div>
-    <div class="corner tr"></div>
-    <div class="corner bl"></div>
-    <div class="corner br"></div>
-    <div class="scan-line" id="scanLine"></div>
+
+  <!-- Barcode mode UI -->
+  <div class="viewfinder" id="barcodeUI">
+    <div class="corner tl"></div><div class="corner tr"></div>
+    <div class="corner bl"></div><div class="corner br"></div>
+    <div class="scan-line"></div>
   </div>
+
+  <!-- Image mode UI -->
+  <div class="crosshair" id="imageUI" style="display:none">
+    <div class="crosshair-ring"></div>
+  </div>
+  <button class="capture-btn" id="captureBtn" onclick="captureAndIdentify()">
+    <div class="capture-btn-inner"></div>
+  </button>
+  <div class="processing" id="processingMsg">⏳ جارٍ التعرف على المنتج...</div>
+
   <div class="cam-status" id="camStatus">جارٍ التحميل...</div>
 </div>
 
@@ -224,130 +236,181 @@
 </div>
 
 <div class="manual-bar">
-  <input type="text" id="manualInput" placeholder="أو أدخل الباركود يدويًا..."
+  <input type="text" id="manualInput"
+         placeholder="أو أدخل الباركود يدويًا..."
          inputmode="numeric" />
   <button class="btn-lookup" onclick="manualLookup()">بحث</button>
 </div>
 
-<!-- ZXing barcode scanner (MIT) -->
 <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
-
 <script>
-  const video      = document.getElementById("video");
-  const canvas     = document.getElementById("canvas");
-  const statusDot  = document.getElementById("statusDot");
-  const camStatus  = document.getElementById("camStatus");
-  const resultPanel= document.getElementById("resultPanel");
-  const scanLine   = document.getElementById("scanLine");
+  const video        = document.getElementById("video");
+  const canvas       = document.getElementById("canvas");
+  const camStatus    = document.getElementById("camStatus");
+  const resultPanel  = document.getElementById("resultPanel");
+  const captureBtn   = document.getElementById("captureBtn");
+  const processingEl = document.getElementById("processingMsg");
+  const barcodeUI    = document.getElementById("barcodeUI");
+  const imageUI      = document.getElementById("imageUI");
 
+  let currentMode  = "barcode";
   let lastBarcode  = null;
-  let cooldown     = false;
+  let barcodeCD    = false;
+  let rafHandle    = null;
 
-  // ── Lookup ──────────────────────────────────────────────────────────────────
-  async function lookup(barcode) {
-    if (cooldown || barcode === lastBarcode) return;
-    cooldown = true;
-    lastBarcode = barcode;
+  // ── Mode switch ─────────────────────────────────────────────────────────────
+  function setMode(mode) {
+    currentMode = mode;
+    document.getElementById("btnBarcode").classList.toggle("active", mode==="barcode");
+    document.getElementById("btnImage").classList.toggle("active",   mode==="image");
+    barcodeUI.style.display = mode==="barcode" ? "block" : "none";
+    imageUI.style.display   = mode==="image"   ? "flex"  : "none";
+    captureBtn.style.display= mode==="image"   ? "block" : "none";
+    document.getElementById("manualInput").placeholder =
+      mode==="barcode" ? "أو أدخل الباركود يدويًا..." : "اسم المنتج للبحث...";
+    lastBarcode = null;
+    showIdle(mode==="barcode" ? "وجّه الكاميرا على باركود المنتج"
+                              : "اضغط الزر لالتقاط صورة المنتج");
+  }
 
-    const res  = await fetch(`/api/lookup?barcode=${encodeURIComponent(barcode)}`);
-    const data = await res.json();
-    showResult(data);
-
-    setTimeout(() => { cooldown = false; }, 3000);
+  // ── Result helpers ──────────────────────────────────────────────────────────
+  function showIdle(msg) {
+    resultPanel.innerHTML = `<p class="result-idle">${msg}</p>`;
   }
 
   function showResult(data) {
-    resultPanel.classList.add("pulse");
-    resultPanel.addEventListener("animationend", () => resultPanel.classList.remove("pulse"), { once: true });
+    resultPanel.classList.remove("pop");
+    void resultPanel.offsetWidth;
+    resultPanel.classList.add("pop");
 
     if (data.found) {
-      statusDot.className = "status-dot found";
+      const catClass = "cat-" + data.category;
       resultPanel.innerHTML = `
-        <div class="product-name">${escHtml(data.name)}</div>
+        <div class="product-name">${esc(data.name)}</div>
         <div>
           <span class="price-badge">${parseFloat(data.price).toFixed(2)}</span>
           <span class="currency"> ج</span>
         </div>
-        <div class="barcode-label">🔍 ${escHtml(data.barcode)}</div>
+        <span class="cat-pill ${catClass}">${esc(data.category)}</span>
+        ${data.barcode  ? `<div class="barcode-label">🔍 ${esc(data.barcode)}</div>` : ""}
+        ${data.identified_as ? `<div class="identified-as">تعرّف على: ${esc(data.identified_as)}</div>` : ""}
       `;
     } else {
-      statusDot.className = "status-dot";
       resultPanel.innerHTML = `
-        <p class="result-notfound">⚠️ الباركود غير موجود في القاعدة</p>
-        <p class="barcode-label">${escHtml(data.barcode || "")}</p>
-        <p style="font-size:.85rem;color:var(--muted);margin-top:8px">
-          <a href="/" style="color:#60a5fa">أضفه من هنا ←</a>
-        </p>
+        <p class="result-notfound">⚠️ المنتج غير موجود في القاعدة</p>
+        ${data.identified_as ? `<p class="identified-as">AI قال: ${esc(data.identified_as)}</p>` : ""}
+        ${data.barcode ? `<p class="barcode-label">${esc(data.barcode)}</p>` : ""}
+        <p style="font-size:.82rem;color:#60a5fa;margin-top:6px"><a href="/" style="color:#60a5fa">أضفه من هنا ←</a></p>
       `;
     }
   }
 
-  function escHtml(str) {
-    return String(str).replace(/[&<>"']/g, c =>
-      ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+  function esc(s) {
+    return String(s||"").replace(/[&<>"']/g,c=>
+      ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   }
 
-  // ── Manual input ─────────────────────────────────────────────────────────
-  function manualLookup() {
+  // ── Barcode lookup ──────────────────────────────────────────────────────────
+  async function lookupBarcode(barcode) {
+    if (barcodeCD || barcode === lastBarcode) return;
+    barcodeCD = true; lastBarcode = barcode;
+    const res  = await fetch(`/api/lookup?barcode=${encodeURIComponent(barcode)}`);
+    showResult(await res.json());
+    setTimeout(() => { barcodeCD = false; }, 3000);
+  }
+
+  // ── Image capture + identify ────────────────────────────────────────────────
+  async function captureAndIdentify() {
+    captureBtn.style.display  = "none";
+    processingEl.style.display= "block";
+    showIdle("⏳ جارٍ التعرف...");
+
+    canvas.width  = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext("2d").drawImage(video, 0, 0);
+    const b64 = canvas.toDataURL("image/jpeg", 0.8).split(",")[1];
+
+    try {
+      const res  = await fetch("/api/identify", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ image: b64 }),
+      });
+      const data = await res.json();
+      if (data.error === "no_api_key") {
+        resultPanel.innerHTML = `<p class="result-notfound">⚠️ مفتاح ANTHROPIC_API_KEY غير مضبوط على السيرفر</p>`;
+      } else {
+        showResult(data);
+      }
+    } catch(e) {
+      showIdle("حدث خطأ، حاول مرة أخرى");
+    }
+
+    processingEl.style.display= "none";
+    captureBtn.style.display  = "block";
+  }
+
+  // ── Manual lookup ───────────────────────────────────────────────────────────
+  async function manualLookup() {
     const val = document.getElementById("manualInput").value.trim();
     if (!val) return;
-    lastBarcode = null;
-    lookup(val);
+    if (currentMode === "barcode") {
+      lastBarcode = null;
+      const res = await fetch(`/api/lookup?barcode=${encodeURIComponent(val)}`);
+      showResult(await res.json());
+    } else {
+      // search by name from DB — simple fetch
+      const res  = await fetch(`/api/lookup?barcode=${encodeURIComponent(val)}`);
+      const data = await res.json();
+      showResult(data);
+    }
   }
   document.getElementById("manualInput").addEventListener("keydown", e => {
     if (e.key === "Enter") manualLookup();
   });
 
-  // ── Camera + ZXing ────────────────────────────────────────────────────────
+  // ── Camera start ─────────────────────────────────────────────────────────
   async function startCamera() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 } }
+        video: { facingMode: { ideal:"environment" }, width:{ideal:1280} }
       });
       video.srcObject = stream;
-      camStatus.textContent = "الكاميرا شغالة";
-      statusDot.className = "status-dot scanning";
-      startDecoder();
-    } catch (err) {
+      camStatus.textContent = "الكاميرا شغالة ✓";
+      startBarcodeDecoder();
+    } catch(e) {
       camStatus.textContent = "تعذّر فتح الكاميرا";
-      resultPanel.innerHTML = `<p class="result-notfound">⚠️ الرجاء السماح بالوصول للكاميرا</p>
-        <p class="result-idle" style="margin-top:8px">أو استخدم حقل الإدخال اليدوي بالأسفل</p>`;
+      showIdle("⚠️ الرجاء السماح بالكاميرا أو استخدم الإدخال اليدوي");
     }
   }
 
-  function startDecoder() {
-    const hints = new Map();
-    const formats = [
-      ZXing.BarcodeFormat.EAN_13,
-      ZXing.BarcodeFormat.EAN_8,
-      ZXing.BarcodeFormat.CODE_128,
-      ZXing.BarcodeFormat.CODE_39,
-      ZXing.BarcodeFormat.QR_CODE,
-      ZXing.BarcodeFormat.UPC_A,
-      ZXing.BarcodeFormat.UPC_E,
-      ZXing.BarcodeFormat.ITF,
-      ZXing.BarcodeFormat.DATA_MATRIX,
-    ];
-    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
-    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-
+  function startBarcodeDecoder() {
+    const hints = new Map([
+      [ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+        ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.EAN_8,
+        ZXing.BarcodeFormat.CODE_128, ZXing.BarcodeFormat.CODE_39,
+        ZXing.BarcodeFormat.UPC_A,   ZXing.BarcodeFormat.UPC_E,
+        ZXing.BarcodeFormat.QR_CODE, ZXing.BarcodeFormat.ITF,
+      ]],
+      [ZXing.DecodeHintType.TRY_HARDER, true],
+    ]);
     const reader = new ZXing.BrowserMultiFormatReader(hints);
     const ctx    = canvas.getContext("2d");
 
     function tick() {
-      if (video.readyState < 2) { requestAnimationFrame(tick); return; }
-      canvas.width  = video.videoWidth;
-      canvas.height = video.videoHeight;
-      ctx.drawImage(video, 0, 0);
-
-      try {
-        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const luminance = new ZXing.RGBLuminanceSource(imgData.data, canvas.width, canvas.height);
-        const bitmap    = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(luminance));
-        const result    = reader.decodeBitmap(bitmap);
-        if (result) lookup(result.getText());
-      } catch (_) {}
-
+      if (currentMode !== "barcode") { requestAnimationFrame(tick); return; }
+      if (video.readyState >= 2) {
+        canvas.width  = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+        try {
+          const imgData  = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const lum      = new ZXing.RGBLuminanceSource(imgData.data, canvas.width, canvas.height);
+          const bitmap   = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(lum));
+          const result   = reader.decodeBitmap(bitmap);
+          if (result) lookupBarcode(result.getText());
+        } catch(_) {}
+      }
       requestAnimationFrame(tick);
     }
     video.addEventListener("loadedmetadata", () => requestAnimationFrame(tick));
