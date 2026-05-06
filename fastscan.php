@@ -159,6 +159,7 @@ $products = $db->query('SELECT id, name, price, category, image_path FROM produc
   <a href="pos.php" class="top-icon-btn"><i class="fa-solid fa-arrow-right"></i></a>
   <div id="topTitle"><i class="fa-solid fa-bolt"></i> Fast Scan</div>
   <div id="prodCount"><i class="fa-solid fa-database"></i> <span id="prodCountN"><?= count($products) ?></span> منتج</div>
+  <button onclick="toggleFS()" id="fsBtn" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#fff;width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:.85rem;flex-shrink:0" title="ملء الشاشة"><i class="fa-solid fa-expand" id="fsIcon"></i></button>
   <button id="scanToggle" onclick="toggleScan()">إيقاف</button>
 </div>
 
@@ -373,6 +374,15 @@ async function startCamera(){
     ring.style.display='none';
   }
 }
+
+/* ── Fullscreen ── */
+function toggleFS(){
+  if(!document.fullscreenElement) document.documentElement.requestFullscreen();
+  else document.exitFullscreen();
+}
+document.addEventListener('fullscreenchange',()=>{
+  document.getElementById('fsIcon').className=document.fullscreenElement?'fa-solid fa-compress':'fa-solid fa-expand';
+});
 
 startCamera();
 </script>

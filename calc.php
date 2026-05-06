@@ -111,6 +111,7 @@ $cur = defined('CURRENCY_LABEL') ? CURRENCY_LABEL : 'ج';
   <div class="hdr-title" style="justify-content:center">
     <i class="fa-solid fa-calculator"></i> كالكوليتور
   </div>
+  <button class="back-btn" onclick="toggleFS()" id="fsBtn" title="ملء الشاشة"><i class="fa-solid fa-expand" id="fsIcon"></i></button>
   <a href="pos.php" class="back-btn" title="POS"><i class="fa-solid fa-store"></i></a>
 </div>
 
@@ -231,6 +232,15 @@ function reset(){
   total=0; input='0'; pending=null; history=[];
   updateDisplay(); updateHistory();
 }
+
+/* ── Fullscreen ── */
+function toggleFS(){
+  if(!document.fullscreenElement) document.documentElement.requestFullscreen();
+  else document.exitFullscreen();
+}
+document.addEventListener('fullscreenchange',()=>{
+  document.getElementById('fsIcon').className=document.fullscreenElement?'fa-solid fa-compress':'fa-solid fa-expand';
+});
 
 updateDisplay();
 </script>

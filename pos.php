@@ -220,6 +220,7 @@ $currency = defined('CURRENCY_LABEL') ? CURRENCY_LABEL : 'ج';
   <a href="history.php" class="icon-btn" title="سجل المبيعات"><i class="fa-solid fa-clock-rotate-left"></i></a>
   <a href="fastscan.php" class="icon-btn" title="Fast Scan"><i class="fa-solid fa-bolt"></i></a>
   <a href="calc.php"    class="icon-btn" title="كالكوليتور"><i class="fa-solid fa-calculator"></i></a>
+  <button class="icon-btn" id="fsBtn" onclick="toggleFS()" title="ملء الشاشة"><i class="fa-solid fa-expand" id="fsIcon"></i></button>
   <a href="logout.php"  class="icon-btn" title="خروج"><i class="fa-solid fa-right-from-bracket"></i></a>
 </div>
 
@@ -469,6 +470,15 @@ async function lookupAndAdd(bc){
 }
 
 document.getElementById('scanOverlay').addEventListener('click',function(e){if(e.target===this)closeScanner()});
+
+/* ── Fullscreen ── */
+function toggleFS(){
+  if(!document.fullscreenElement) document.documentElement.requestFullscreen();
+  else document.exitFullscreen();
+}
+document.addEventListener('fullscreenchange',()=>{
+  document.getElementById('fsIcon').className=document.fullscreenElement?'fa-solid fa-compress':'fa-solid fa-expand';
+});
 
 loadProducts('','');
 </script>
