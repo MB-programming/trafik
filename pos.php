@@ -206,20 +206,45 @@ $currency = defined('CURRENCY_LABEL') ? CURRENCY_LABEL : 'ج';
     .btn-pay:active:not(:disabled){transform:scale(.96)}
     .btn-pay:disabled{background:#374151;color:#6b7280;cursor:not-allowed}
 
-    /* ── Scanner modal ── */
-    .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:100;align-items:center;justify-content:center;padding:12px}
-    .overlay.open{display:flex}
-    /* ── Floating calc button ── */
-    .calc-fab{
-      position:fixed;left:12px;bottom:76px;
-      width:40px;height:40px;border-radius:50%;
-      background:#1e293b;color:#fff;
-      display:flex;align-items:center;justify-content:center;
-      font-size:.95rem;box-shadow:0 3px 12px rgba(0,0,0,.35);
-      text-decoration:none;z-index:50;opacity:.85;
-      transition:.15s;
+    /* ── Content row ── */
+    .content-row{flex:1;display:flex;overflow:hidden}
+
+    /* ── Embedded calculator ── */
+    .calc-panel{
+      width:180px;flex-shrink:0;
+      background:#1e293b;
+      display:flex;flex-direction:column;
+      padding:8px;gap:5px;
+      border-left:1px solid #0f172a;
     }
-    .calc-fab:hover{opacity:1;transform:scale(1.08)}
+    .calc-disp{
+      background:#0f172a;border-radius:10px;
+      padding:10px 12px;text-align:left;direction:ltr;
+      flex-shrink:0;
+    }
+    .calc-disp-sub{font-size:.72rem;color:#64748b;min-height:1em;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .calc-disp-main{font-size:1.6rem;font-weight:800;color:#f1f5f9;line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .calc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;flex:1}
+    .cb{
+      border:none;border-radius:8px;
+      font-size:.88rem;font-weight:700;
+      cursor:pointer;padding:0;
+      display:flex;align-items:center;justify-content:center;
+      min-height:38px;transition:.1s;
+      font-family:inherit;
+    }
+    .cb:active{transform:scale(.92)}
+    .cb-num{background:#334155;color:#f1f5f9}
+    .cb-num:hover{background:#475569}
+    .cb-op{background:#d97706;color:#fff}
+    .cb-op:hover{background:#f59e0b}
+    .cb-fn{background:#374151;color:#94a3b8}
+    .cb-fn:hover{background:#4b5563}
+    .cb-eq{background:#16a34a;color:#fff}
+    .cb-eq:hover{background:#22c55e}
+    .cb-ac{background:#dc2626;color:#fff}
+    .cb-ac:hover{background:#ef4444}
+    .cb-zero{grid-column:span 2}
 
     /* ── Toast ── */
     .toast{
@@ -283,12 +308,49 @@ $currency = defined('CURRENCY_LABEL') ? CURRENCY_LABEL : 'ج';
 </div>
 <?php endif ?>
 
-<!-- Products -->
+<div class="content-row">
+
+<!-- Calculator (left) -->
+<div class="calc-panel">
+  <div class="calc-disp">
+    <div class="calc-disp-sub" id="calcSub"></div>
+    <div class="calc-disp-main" id="calcDisplay">0</div>
+  </div>
+  <div class="calc-grid">
+    <button class="cb cb-ac"  onclick="cp('AC')">AC</button>
+    <button class="cb cb-fn"  onclick="cp('±')">±</button>
+    <button class="cb cb-fn"  onclick="cp('%')">%</button>
+    <button class="cb cb-op"  onclick="cp('÷')">÷</button>
+
+    <button class="cb cb-num" onclick="cp('7')">7</button>
+    <button class="cb cb-num" onclick="cp('8')">8</button>
+    <button class="cb cb-num" onclick="cp('9')">9</button>
+    <button class="cb cb-op"  onclick="cp('×')">×</button>
+
+    <button class="cb cb-num" onclick="cp('4')">4</button>
+    <button class="cb cb-num" onclick="cp('5')">5</button>
+    <button class="cb cb-num" onclick="cp('6')">6</button>
+    <button class="cb cb-op"  onclick="cp('−')">−</button>
+
+    <button class="cb cb-num" onclick="cp('1')">1</button>
+    <button class="cb cb-num" onclick="cp('2')">2</button>
+    <button class="cb cb-num" onclick="cp('3')">3</button>
+    <button class="cb cb-op"  onclick="cp('+')">+</button>
+
+    <button class="cb cb-num cb-zero" onclick="cp('0')">0</button>
+    <button class="cb cb-fn"  onclick="cp('.')">.</button>
+    <button class="cb cb-eq"  onclick="cp('=')">=</button>
+  </div>
+</div>
+
+<!-- Products (right) -->
 <div class="prod-area">
   <div class="prod-grid" id="prodGrid">
     <div class="no-results"><i class="fa-solid fa-spinner fa-spin"></i>جارٍ التحميل...</div>
   </div>
 </div>
+
+</div><!-- end content-row -->
 
 <!-- Pay bar -->
 <div class="pay-bar">
@@ -307,7 +369,6 @@ $currency = defined('CURRENCY_LABEL') ? CURRENCY_LABEL : 'ج';
   </button>
 </div>
 
-<a href="calc.php" class="calc-fab" title="حاسبة"><i class="fa-solid fa-calculator"></i></a>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -447,6 +508,54 @@ async function pay(){
     showToast('خطأ في الاتصال',false);
     btn.disabled=false;
   }
+}
+
+/* ── Embedded Calculator ── */
+let cv='0', cprev=null, cop=null, cEvaled=false;
+function cp(v){
+  const disp=document.getElementById('calcDisplay');
+  const sub=document.getElementById('calcSub');
+  if(v==='AC'){cv='0';cprev=null;cop=null;cEvaled=false;sub.textContent='';}
+  else if(v==='±'){cv=String(-(parseFloat(cv)||0));}
+  else if(v==='%'){cv=String((parseFloat(cv)||0)/100);}
+  else if(v==='÷'||v==='×'||v==='−'||v==='+'){
+    if(cprev!==null&&cop&&!cEvaled)cEval();
+    cprev=parseFloat(cv);cop=v;cEvaled=false;cv='0';
+    sub.textContent=fmtC(cprev)+' '+v;
+  }
+  else if(v==='='){
+    if(cprev===null||!cop)return;
+    cEval();cop=null;cprev=null;sub.textContent='';
+  }
+  else if(v==='.'){
+    if(cEvaled){cv='0';cEvaled=false;}
+    if(!cv.includes('.'))cv+='.';
+  }
+  else{
+    if(cEvaled){cv='0';cEvaled=false;}
+    cv=cv==='0'?v:cv+v;
+    if(cv.length>12)return;
+  }
+  disp.textContent=fmtC(cv);
+}
+function cEval(){
+  const disp=document.getElementById('calcDisplay');
+  const a=cprev,b=parseFloat(cv);
+  let r;
+  if(cop==='+')r=a+b;
+  else if(cop==='−')r=a-b;
+  else if(cop==='×')r=a*b;
+  else if(cop==='÷')r=b===0?NaN:a/b;
+  cv=isNaN(r)?'خطأ':String(parseFloat(r.toFixed(10)));
+  cprev=parseFloat(cv);cEvaled=true;
+  disp.textContent=fmtC(cv);
+}
+function fmtC(v){
+  const n=parseFloat(v);
+  if(isNaN(n))return v;
+  if(String(v).includes('.')&&String(v).endsWith('.')||String(v)==='0.'||String(v)==='-')return v;
+  if(Math.abs(n)>=1e10)return n.toExponential(4);
+  return String(v);
 }
 
 /* ── Fullscreen ── */
