@@ -173,7 +173,7 @@ function faIcon(string $cls, string $extra=''): string {
       <h2><i class="fa-solid fa-plus-circle"></i> إضافة منتج جديد</h2>
       <form id="addForm" onsubmit="addProduct(event)" enctype="multipart/form-data">
         <div class="form-row" style="margin-bottom:8px">
-          <input type="text"   name="barcode" placeholder="باركود" required/>
+          <input type="text"   name="barcode" id="addBarcode" placeholder="باركود" required/>
           <div style="display:flex;gap:6px;flex:1;min-width:140px">
             <input type="text" name="name" id="addName" placeholder="اسم المنتج" required style="flex:1;min-width:0;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:.92rem"/>
             <?php if($hasAI): ?>
@@ -182,8 +182,8 @@ function faIcon(string $cls, string $extra=''): string {
             </button>
             <?php endif ?>
           </div>
-          <input type="number" name="price"   placeholder="السعر (ج)" step="0.01" min="0" required/>
-          <select name="category">
+          <input type="number" name="price" id="addPrice" placeholder="السعر (ج)" step="0.01" min="0" required/>
+          <select name="category" id="addCat">
             <?php foreach($allCats as $c): ?>
             <option value="<?= htmlspecialchars($c['name']) ?>"><?= htmlspecialchars($c['name']) ?></option>
             <?php endforeach ?>
@@ -393,7 +393,7 @@ function faIcon(string $cls, string $extra=''): string {
     <div class="ai-status" id="aiCamStatus">وجّه الكاميرا على المنتج ثم اضغط تصوير</div>
     <div class="ai-cam-actions">
       <button class="btn-capture" id="btnCapture" onclick="captureAndIdentify()">
-        <i class="fa-solid fa-camera"></i> تصوير وتعرف
+        <i class="fa-solid fa-camera"></i> تصوير وملء البيانات
       </button>
       <button class="btn-cam-close" onclick="closeAiCapture()">
         <i class="fa-solid fa-xmark"></i>
@@ -405,7 +405,8 @@ function faIcon(string $cls, string $extra=''): string {
 <div class="toast" id="toast"></div>
 
 <script>
-const GEMINI_KEY = <?= json_encode($geminiKey) ?>;
+const GEMINI_KEY  = <?= json_encode($geminiKey) ?>;
+const CATEGORIES  = <?= json_encode(array_column($allCats,'name'), JSON_UNESCAPED_UNICODE) ?>;
 let editId=null, editCatId=null;
 
 /* ── AI Camera Capture ── */
@@ -413,10 +414,10 @@ let aiCamStream=null, aiCamTarget='add'; // target: 'add' or 'edit'
 
 async function openAiCapture(target){
   aiCamTarget=target;
-  document.getElementById('aiCamStatus').textContent='وجّه الكاميرا على المنتج ثم اضغط تصوير';
+  document.getElementById('aiCamStatus').textContent='وجّه الكاميرا على المنتج — AI هيملي كل البيانات';
   document.getElementById('btnCapture').classList.remove('thinking');
   document.getElementById('btnCapture').disabled=false;
-  document.getElementById('btnCapture').innerHTML='<i class="fa-solid fa-camera"></i> تصوير وتعرف';
+  document.getElementById('btnCapture').innerHTML='<i class="fa-solid fa-camera"></i> تصوير وملء البيانات';
   document.getElementById('aiCamOverlay').classList.add('open');
   try{
     aiCamStream=await navigator.mediaDevices.getUserMedia({
@@ -448,57 +449,76 @@ async function captureAndIdentify(){
 
   btn.disabled=true; btn.classList.add('thinking');
   btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> جارٍ التعرف...';
-  status.textContent='يسأل Gemini...';
+  status.textContent='يحلل الصورة...';
 
   try{
+    const catList = CATEGORIES.join('، ');
+    const prompt =
+      `أمامك صورة لمنتج في متجر.\n` +
+      `استخرج البيانات التالية بدقة:\n` +
+      `1. name: اسم المنتج أو البراند (عربي أو أجنبي، 6 كلمات كحد أقصى)\n` +
+      `2. price: السعر الظاهر في الصورة كرقم فقط بدون عملة (مثال: 12.50) — اكتب "" إذا لم يكن مرئياً\n` +
+      `3. barcode: رقم الباركود إذا كان مرئياً وواضحاً — اكتب "" إذا لم يكن مرئياً\n` +
+      `4. category: اختر القسم الأنسب من هذه الأقسام فقط: ${catList}\n\n` +
+      `أجب بـ JSON فقط بهذا الشكل بالضبط بدون أي نص إضافي:\n` +
+      `{"name":"...","price":"...","barcode":"...","category":"..."}`;
+
     const url=`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`;
     const payload={
       contents:[{parts:[
         {inline_data:{mime_type:'image/jpeg',data:b64}},
-        {text:'ما هو اسم هذا المنتج أو البراند الظاهر في الصورة؟ أجب بالاسم فقط بدون أي شرح، 8 كلمات كحد أقصى.'}
+        {text:prompt}
       ]}],
-      generationConfig:{maxOutputTokens:60,temperature:0.1}
+      generationConfig:{maxOutputTokens:120,temperature:0.1}
     };
     const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     const d=await r.json();
-    const name=(d.candidates?.[0]?.content?.parts?.[0]?.text||'').trim();
+    const raw=(d.candidates?.[0]?.content?.parts?.[0]?.text||'').trim();
 
-    if(!name){status.textContent='لم يتعرف على المنتج — جرب تاني';btn.disabled=false;btn.classList.remove('thinking');btn.innerHTML='<i class="fa-solid fa-camera"></i> تصوير وتعرف';return}
-
-    // fill the name field
-    if(aiCamTarget==='add'){
-      document.getElementById('addName').value=name;
-    } else {
-      document.getElementById('eName').value=name;
+    // extract JSON even if gemini wraps it in ```json ... ```
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if(!jsonMatch){
+      status.textContent='لم يتعرف — جرب تاني أو صوّر أوضح';
+      btn.disabled=false; btn.classList.remove('thinking');
+      btn.innerHTML='<i class="fa-solid fa-camera"></i> تصوير للتعرف';
+      return;
     }
 
-    // convert captured canvas to a File and set as the product image
+    let info;
+    try{ info=JSON.parse(jsonMatch[0]); }
+    catch(e){ info={}; }
+
+    const isAdd = aiCamTarget==='add';
+    if(info.name)    document.getElementById(isAdd?'addName':'eName').value    = info.name;
+    if(info.price)   document.getElementById(isAdd?'addPrice':'ePrice').value  = info.price;
+    if(info.barcode) document.getElementById(isAdd?'addBarcode':'eBarcode').value = info.barcode;
+    if(info.category){
+      const sel=document.getElementById(isAdd?'addCat':'eCat');
+      // try exact match first, then partial
+      const opt=[...sel.options].find(o=>o.value===info.category||info.category.includes(o.value)||o.value.includes(info.category));
+      if(opt) sel.value=opt.value;
+    }
+
+    // set captured photo as product image
     canvas.toBlob(blob=>{
       if(!blob)return;
       const file=new File([blob],'ai-capture.jpg',{type:'image/jpeg'});
       const dt=new DataTransfer(); dt.items.add(file);
-      if(aiCamTarget==='add'){
-        const inp=document.getElementById('addImgFile');
-        inp.files=dt.files;
-        const prev=document.getElementById('addPreview');
-        prev.src=canvas.toDataURL('image/jpeg');
-        prev.style.display='block';
-      } else {
-        const inp=document.getElementById('eImgFile');
-        inp.files=dt.files;
-        const prev=document.getElementById('eImgPreview');
-        prev.src=canvas.toDataURL('image/jpeg');
-        prev.style.display='block';
-      }
+      const inp=document.getElementById(isAdd?'addImgFile':'eImgFile');
+      inp.files=dt.files;
+      const prev=document.getElementById(isAdd?'addPreview':'eImgPreview');
+      prev.src=canvas.toDataURL('image/jpeg');
+      prev.style.display='block';
     },'image/jpeg',0.85);
 
-    status.innerHTML=`<i class="fa-solid fa-circle-check" style="color:#4ade80"></i> تم التعرف: <strong style="color:#f1f5f9">${name}</strong>`;
-    setTimeout(()=>closeAiCapture(), 1200);
+    const filled=[info.name,info.price?'السعر':'',info.barcode?'الباركود':''].filter(Boolean).join(' · ');
+    status.innerHTML=`<i class="fa-solid fa-circle-check" style="color:#4ade80"></i> <strong style="color:#f1f5f9">${filled}</strong>`;
+    setTimeout(()=>closeAiCapture(), 1400);
 
   }catch(e){
     status.textContent='خطأ في الاتصال بـ Gemini';
     btn.disabled=false; btn.classList.remove('thinking');
-    btn.innerHTML='<i class="fa-solid fa-camera"></i> تصوير وتعرف';
+    btn.innerHTML='<i class="fa-solid fa-camera"></i> تصوير للتعرف';
   }
 }
 
