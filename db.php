@@ -3,18 +3,29 @@ function getDB(): PDO {
     $db = new PDO('sqlite:' . __DIR__ . '/products.db');
     $db->setAttribute(PDO::ATTR_ERRMODE,            PDO::ERRMODE_EXCEPTION);
     $db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+    $db->exec('PRAGMA foreign_keys = ON');
     return $db;
 }
 
 function initDB(): void {
+    require_once __DIR__ . '/config.php';
     $db = getDB();
+
     $db->exec("
+        CREATE TABLE IF NOT EXISTS categories (
+            id   INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT    NOT NULL UNIQUE,
+            icon TEXT    NOT NULL DEFAULT '📦',
+            sort INTEGER NOT NULL DEFAULT 0
+        );
+
         CREATE TABLE IF NOT EXISTS products (
-            id       INTEGER PRIMARY KEY AUTOINCREMENT,
-            barcode  TEXT    NOT NULL UNIQUE,
-            name     TEXT    NOT NULL,
-            price    REAL    NOT NULL,
-            category TEXT    NOT NULL DEFAULT 'منوعات'
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            barcode    TEXT    NOT NULL UNIQUE,
+            name       TEXT    NOT NULL,
+            price      REAL    NOT NULL,
+            category   TEXT    NOT NULL DEFAULT 'منوعات',
+            image_path TEXT    NOT NULL DEFAULT ''
         );
 
         CREATE TABLE IF NOT EXISTS orders (
@@ -34,6 +45,19 @@ function initDB(): void {
             qty        INTEGER NOT NULL DEFAULT 1
         );
     ");
+
+    // add image_path column if upgrading from older schema
+    try { $db->exec("ALTER TABLE products ADD COLUMN image_path TEXT NOT NULL DEFAULT ''"); }
+    catch (Exception $e) {}
+
+    // seed default categories if empty
+    $count = (int)$db->query('SELECT COUNT(*) FROM categories')->fetchColumn();
+    if ($count === 0) {
+        $st = $db->prepare('INSERT OR IGNORE INTO categories (name, icon, sort) VALUES (?,?,?)');
+        foreach (DEFAULT_CATEGORIES as $i => $c) {
+            $st->execute([$c['name'], $c['icon'], $i]);
+        }
+    }
 }
 
 initDB();

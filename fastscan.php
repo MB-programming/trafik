@@ -1,4 +1,9 @@
-<?php require_once __DIR__.'/config.php'; ?>
+<?php
+require_once __DIR__.'/config.php';
+require_once __DIR__.'/auth.php';
+requireLogin();
+$hasAI = AI_PROVIDER !== '';
+?>
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -163,8 +168,11 @@ function startPB(ms){
   pb.style.transition=`width ${ms}ms linear`; pb.style.width='100%';
 }
 
+const HAS_AI = <?= $hasAI ? 'true' : 'false' ?>;
+
 async function scanFrame(){
   if(!scanning||video.readyState<2) return;
+  if(!HAS_AI){lbl.textContent='لا يوجد AI — باركود فقط';return}
   lbl.style.opacity='1'; lbl.textContent='⏳ جارٍ التعرف...';
   ring.className='scanning';
   canvas.width=video.videoWidth; canvas.height=video.videoHeight;
@@ -173,7 +181,7 @@ async function scanFrame(){
   try{
     const r=await fetch('api.php?action=identify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image:b64})});
     const d=await r.json();
-    if(d.error==='no_api_key'){lbl.textContent='مفتاح API غير مضبوط';return}
+    if(d.error==='no_provider'){lbl.textContent='فعّل AI من config.php';return}
     if(d.found) showFound(d); else showNotFound(d);
   }catch(e){lbl.textContent='خطأ في الاتصال'}
 }
