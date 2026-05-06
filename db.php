@@ -19,12 +19,19 @@ function initDB(): void {
             sort INTEGER NOT NULL DEFAULT 0
         );
 
+        CREATE TABLE IF NOT EXISTS brands (
+            id   INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT    NOT NULL UNIQUE,
+            sort INTEGER NOT NULL DEFAULT 0
+        );
+
         CREATE TABLE IF NOT EXISTS products (
             id         INTEGER PRIMARY KEY AUTOINCREMENT,
             barcode    TEXT    NOT NULL UNIQUE,
             name       TEXT    NOT NULL,
             price      REAL    NOT NULL,
             category   TEXT    NOT NULL DEFAULT 'منوعات',
+            brand      TEXT    NOT NULL DEFAULT '',
             image_path TEXT    NOT NULL DEFAULT ''
         );
 
@@ -46,9 +53,9 @@ function initDB(): void {
         );
     ");
 
-    // add image_path column if upgrading from older schema
-    try { $db->exec("ALTER TABLE products ADD COLUMN image_path TEXT NOT NULL DEFAULT ''"); }
-    catch (Exception $e) {}
+    // migrations for older schemas
+    try { $db->exec("ALTER TABLE products ADD COLUMN image_path TEXT NOT NULL DEFAULT ''"); } catch (Exception $e) {}
+    try { $db->exec("ALTER TABLE products ADD COLUMN brand TEXT NOT NULL DEFAULT ''"); } catch (Exception $e) {}
 
     // seed default categories if empty
     $count = (int)$db->query('SELECT COUNT(*) FROM categories')->fetchColumn();

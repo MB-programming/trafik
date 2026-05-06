@@ -5,6 +5,7 @@ require_once __DIR__ . '/auth.php';
 requireLogin();
 $db       = getDB();
 $cats     = $db->query('SELECT * FROM categories ORDER BY sort,id')->fetchAll();
+$brands   = $db->query('SELECT * FROM brands ORDER BY sort,id')->fetchAll();
 $currency = defined('CURRENCY_LABEL') ? CURRENCY_LABEL : 'ج';
 ?>
 <!DOCTYPE html>
@@ -77,6 +78,24 @@ $currency = defined('CURRENCY_LABEL') ? CURRENCY_LABEL : 'ج';
     .ctab i{font-size:.75rem}
     .ctab.active{background:var(--primary);color:#fff;border-color:var(--primary)}
     .ctab:hover:not(.active){border-color:#93c5fd;color:var(--primary);background:#eff6ff}
+
+    /* ── Brand strip ── */
+    .brand-strip{
+      display:flex;gap:6px;padding:6px 12px;
+      overflow-x:auto;background:#fffbeb;
+      border-bottom:1px solid #fde68a;flex-shrink:0;
+      -webkit-overflow-scrolling:touch;
+    }
+    .brand-strip::-webkit-scrollbar{display:none}
+    .btab{
+      display:flex;align-items:center;gap:5px;
+      padding:5px 12px;border-radius:20px;
+      font-size:.78rem;font-weight:700;white-space:nowrap;
+      border:2px solid #fde68a;background:#fef3c7;color:#92400e;
+      cursor:pointer;transition:.12s;
+    }
+    .btab.active{background:#f59e0b;color:#fff;border-color:#f59e0b}
+    .btab:hover:not(.active){border-color:#f59e0b;background:#fde68a}
 
     /* ── Product grid ── */
     .prod-area{flex:1;overflow-y:auto;padding:10px;-webkit-overflow-scrolling:touch}
@@ -230,11 +249,27 @@ $currency = defined('CURRENCY_LABEL') ? CURRENCY_LABEL : 'ج';
   <?php foreach($cats as $c): ?>
   <button class="ctab" data-cat="<?= htmlspecialchars($c['name']) ?>"
           onclick="setcat(this,<?= json_encode($c['name'],JSON_UNESCAPED_UNICODE) ?>)">
-    <i class="fa-solid <?= htmlspecialchars($c['icon']) ?>"></i>
+    <i class="fa-solid fa-<?= htmlspecialchars($c['icon']) ?>"></i>
     <?= htmlspecialchars($c['name']) ?>
   </button>
   <?php endforeach ?>
 </div>
+
+<?php if($brands): ?>
+<!-- Brand tabs -->
+<div class="brand-strip" id="brandStrip">
+  <button class="btab active" data-brand="" onclick="setbrand(this,'')">
+    <i class="fa-solid fa-border-all"></i> كل البراندات
+  </button>
+  <?php foreach($brands as $b): ?>
+  <button class="btab" data-brand="<?= htmlspecialchars($b['name']) ?>"
+          onclick="setbrand(this,<?= htmlspecialchars(json_encode($b['name'],JSON_UNESCAPED_UNICODE)) ?>)">
+    <i class="fa-solid fa-flag"></i>
+    <?= htmlspecialchars($b['name']) ?>
+  </button>
+  <?php endforeach ?>
+</div>
+<?php endif ?>
 
 <!-- Products -->
 <div class="prod-area">
@@ -264,7 +299,7 @@ $currency = defined('CURRENCY_LABEL') ? CURRENCY_LABEL : 'ج';
 
 <script>
 const CURRENCY = <?= json_encode($currency) ?>;
-let cart=[], currentCat='', allProducts=[], searchTimer=null;
+let cart=[], currentCat='', currentBrand='', allProducts=[], searchTimer=null;
 
 /* ── Helpers ── */
 function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -281,8 +316,8 @@ function showToast(msg, ok=true){
 }
 
 /* ── Load & render products ── */
-async function loadProducts(q='', cat=''){
-  const url='api.php?action=search&q='+encodeURIComponent(q)+'&cat='+encodeURIComponent(cat);
+async function loadProducts(q='', cat='', brand=''){
+  const url='api.php?action=search&q='+encodeURIComponent(q)+'&cat='+encodeURIComponent(cat)+'&brand='+encodeURIComponent(brand);
   const r=await fetch(url); const d=await r.json();
   allProducts=d.results||[];
   renderGrid(allProducts);
@@ -324,14 +359,20 @@ function renderGrid(products){
 /* ── Search & filter ── */
 function search(q){
   clearTimeout(searchTimer);
-  searchTimer=setTimeout(()=>loadProducts(q,currentCat),200);
+  searchTimer=setTimeout(()=>loadProducts(q,currentCat,currentBrand),200);
 }
 function addFirst(){const f=document.querySelector('.prod-card');if(f)f.click()}
 function setcat(btn,cat){
   currentCat=cat;
   document.querySelectorAll('.ctab').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  loadProducts(document.getElementById('searchIn').value,cat);
+  loadProducts(document.getElementById('searchIn').value,cat,currentBrand);
+}
+function setbrand(btn,brand){
+  currentBrand=brand;
+  document.querySelectorAll('.btab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  loadProducts(document.getElementById('searchIn').value,currentCat,brand);
 }
 
 /* ── Cart ── */
@@ -412,7 +453,7 @@ document.addEventListener('fullscreenchange',()=>{
 });
 if(sessionStorage.getItem('fs')==='1') document.documentElement.requestFullscreen().catch(()=>{});
 
-loadProducts('','');
+loadProducts('','','');
 </script>
 </body>
 </html>

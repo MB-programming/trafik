@@ -5,14 +5,13 @@ require_once __DIR__ . '/auth.php';
 requireLogin();
 
 $db        = getDB();
-$geminiKey = (AI_PROVIDER === 'gemini') ? GEMINI_API_KEY : '';
-$hasAI     = AI_PROVIDER !== '' && $geminiKey !== '';
 $tab       = $_GET['tab'] ?? 'products';
 $query     = trim($_GET['q'] ?? '');
 $catFilter = $_GET['cat'] ?? '';
 
-$allCats  = $db->query('SELECT * FROM categories ORDER BY sort,id')->fetchAll();
-$catNames = array_column($allCats,'name');
+$allCats   = $db->query('SELECT * FROM categories ORDER BY sort,id')->fetchAll();
+$catNames  = array_column($allCats,'name');
+$allBrands = $db->query('SELECT * FROM brands ORDER BY sort,id')->fetchAll();
 if ($catFilter && !in_array($catFilter,$catNames)) $catFilter='';
 
 $params=[]; $sql='SELECT * FROM products WHERE 1=1';
@@ -24,6 +23,8 @@ $products=$st->fetchAll();
 
 $counts=[];
 foreach($allCats as $c) $counts[$c['name']]=(int)$db->query("SELECT COUNT(*) FROM products WHERE category='".addslashes($c['name'])."'")->fetchColumn();
+$brandCounts=[];
+foreach($allBrands as $b) $brandCounts[$b['name']]=(int)$db->query("SELECT COUNT(*) FROM products WHERE brand='".addslashes($b['name'])."'")->fetchColumn();
 $total=(int)$db->query('SELECT COUNT(*) FROM products')->fetchColumn();
 
 // helper: render FA icon safely
@@ -165,6 +166,9 @@ function faIcon(string $cls, string $extra=''): string {
     <button class="tab-btn <?= $tab==='categories'?'active':'' ?>" onclick="switchTab('categories')">
       <i class="fa-solid fa-tags"></i> الأقسام
     </button>
+    <button class="tab-btn <?= $tab==='brands'?'active':'' ?>" onclick="switchTab('brands')">
+      <i class="fa-solid fa-flag"></i> البراندات
+    </button>
   </div>
 
   <!-- ══ PRODUCTS TAB ══ -->
@@ -173,12 +177,18 @@ function faIcon(string $cls, string $extra=''): string {
       <h2><i class="fa-solid fa-plus-circle"></i> إضافة منتج جديد</h2>
       <form id="addForm" onsubmit="addProduct(event)" enctype="multipart/form-data">
         <div class="form-row" style="margin-bottom:8px">
-          <input type="text"   name="barcode" id="addBarcode" placeholder="باركود"/>
+          <input type="text"   name="barcode" id="addBarcode" placeholder="باركود (اختياري)"/>
           <input type="text"   name="name"    id="addName"    placeholder="اسم المنتج" required/>
           <input type="number" name="price"   id="addPrice"   placeholder="السعر" step="0.01" min="0" required/>
           <select name="category" id="addCat">
             <?php foreach($allCats as $c): ?>
             <option value="<?= htmlspecialchars($c['name']) ?>"><?= htmlspecialchars($c['name']) ?></option>
+            <?php endforeach ?>
+          </select>
+          <select name="brand" id="addBrand">
+            <option value="">— بدون براند —</option>
+            <?php foreach($allBrands as $b): ?>
+            <option value="<?= htmlspecialchars($b['name']) ?>"><?= htmlspecialchars($b['name']) ?></option>
             <?php endforeach ?>
           </select>
         </div>
@@ -225,7 +235,7 @@ function faIcon(string $cls, string $extra=''): string {
     <?php if($products): ?>
     <div class="tbl-wrap">
       <table>
-        <thead><tr><th>صورة</th><th>باركود</th><th>اسم المنتج</th><th>القسم</th><th>السعر</th><th>إجراءات</th></tr></thead>
+        <thead><tr><th>صورة</th><th>باركود</th><th>اسم المنتج</th><th>القسم</th><th>البراند</th><th>السعر</th><th>إجراءات</th></tr></thead>
         <tbody>
           <?php foreach($products as $p): ?>
           <tr id="row-<?= $p['id'] ?>">
@@ -240,17 +250,15 @@ function faIcon(string $cls, string $extra=''): string {
             <td><?= htmlspecialchars($p['name']) ?></td>
             <td>
               <?php $cat=array_filter($allCats,fn($c)=>$c['name']===$p['category']); $cat=reset($cat); ?>
-              <span class="badge">
-                <?= $cat ? faIcon($cat['icon']) : '' ?>
-                <?= htmlspecialchars($p['category']) ?>
-              </span>
+              <span class="badge"><?= $cat ? faIcon($cat['icon']) : '' ?> <?= htmlspecialchars($p['category']) ?></span>
             </td>
-            <td class="price"><?= number_format($p['price'],2) ?> <?= htmlspecialchars(defined('CURRENCY_LABEL')?CURRENCY_LABEL:'ج') ?></td>
+            <td><?php if($p['brand']??''): ?><span class="badge" style="background:#fef3c7;color:#92400e;border:none"><?= htmlspecialchars($p['brand']) ?></span><?php endif ?></td>
+            <td class="price"><?= number_format($p['price'],2) ?> <?= htmlspecialchars(defined('CURRENCY_LABEL')?CURRENCY_LABEL:'€') ?></td>
             <td><div class="acts">
               <button class="btn btn-e" onclick="openEdit(<?= htmlspecialchars(json_encode($p,JSON_UNESCAPED_UNICODE)) ?>)">
                 <i class="fa-solid fa-pen"></i> تعديل
               </button>
-              <button class="btn btn-d" onclick="delProduct(<?= $p['id'] ?>,<?= json_encode($p['name'],JSON_UNESCAPED_UNICODE) ?>)">
+              <button class="btn btn-d" onclick="delProduct(<?= $p['id'] ?>,<?= htmlspecialchars(json_encode($p['name'],JSON_UNESCAPED_UNICODE)) ?>)">
                 <i class="fa-solid fa-trash-can"></i>
               </button>
             </div></td>
@@ -307,15 +315,49 @@ function faIcon(string $cls, string $extra=''): string {
           <div class="cat-count"><?= $counts[$c['name']]??0 ?> منتج</div>
         </div>
         <div class="cat-acts">
-          <button class="btn btn-e" onclick="editCategory(<?= $c['id'] ?>,<?= json_encode($c['name'],JSON_UNESCAPED_UNICODE) ?>,'<?= htmlspecialchars($c['icon']) ?>')">
+          <button class="btn btn-e" onclick="editCategory(<?= $c['id'] ?>,<?= htmlspecialchars(json_encode($c['name'],JSON_UNESCAPED_UNICODE)) ?>,'<?= htmlspecialchars($c['icon']) ?>')">
             <i class="fa-solid fa-pen"></i>
           </button>
-          <button class="btn btn-d" onclick="delCategory(<?= $c['id'] ?>,<?= json_encode($c['name'],JSON_UNESCAPED_UNICODE) ?>)">
+          <button class="btn btn-d" onclick="delCategory(<?= $c['id'] ?>,<?= htmlspecialchars(json_encode($c['name'],JSON_UNESCAPED_UNICODE)) ?>)">
             <i class="fa-solid fa-trash-can"></i>
           </button>
         </div>
       </div>
       <?php endforeach ?>
+    </div>
+  </div>
+
+  <!-- ══ BRANDS TAB ══ -->
+  <div class="tab-pane <?= $tab==='brands'?'active':'' ?>" id="tab-brands">
+    <div class="card">
+      <h2><i class="fa-solid fa-plus-circle"></i> إضافة براند جديد</h2>
+      <div class="form-row" style="margin-bottom:0">
+        <input type="text" id="newBrandName" placeholder="اسم البراند (مثال: كوكاكولا، ريدبول...)" style="flex:1"/>
+        <button class="btn btn-p" onclick="addBrand()"><i class="fa-solid fa-plus"></i> إضافة براند</button>
+      </div>
+    </div>
+
+    <div class="cats-grid" id="brandsGrid">
+      <?php foreach($allBrands as $b): ?>
+      <div class="cat-card" id="brand-<?= $b['id'] ?>">
+        <div class="cat-icon-wrap" style="background:#fef3c7;color:#92400e"><i class="fa-solid fa-flag"></i></div>
+        <div class="cat-info">
+          <div class="cat-name"><?= htmlspecialchars($b['name']) ?></div>
+          <div class="cat-count"><?= $brandCounts[$b['name']]??0 ?> منتج</div>
+        </div>
+        <div class="cat-acts">
+          <button class="btn btn-e" onclick="editBrand(<?= $b['id'] ?>,<?= htmlspecialchars(json_encode($b['name'],JSON_UNESCAPED_UNICODE)) ?>)">
+            <i class="fa-solid fa-pen"></i>
+          </button>
+          <button class="btn btn-d" onclick="delBrand(<?= $b['id'] ?>,<?= htmlspecialchars(json_encode($b['name'],JSON_UNESCAPED_UNICODE)) ?>)">
+            <i class="fa-solid fa-trash-can"></i>
+          </button>
+        </div>
+      </div>
+      <?php endforeach ?>
+      <?php if(!$allBrands): ?>
+      <div class="empty" style="grid-column:1/-1"><i class="fa-solid fa-flag" style="font-size:2rem;display:block;margin-bottom:8px;opacity:.3"></i>لا توجد براندات بعد</div>
+      <?php endif ?>
     </div>
   </div>
 </div>
@@ -330,6 +372,10 @@ function faIcon(string $cls, string $extra=''): string {
       <input type="number" id="ePrice"   placeholder="السعر" step="0.01" min="0"/>
       <select id="eCat">
         <?php foreach($allCats as $c): ?><option value="<?= htmlspecialchars($c['name']) ?>"><?= htmlspecialchars($c['name']) ?></option><?php endforeach ?>
+      </select>
+      <select id="eBrand">
+        <option value="">— بدون براند —</option>
+        <?php foreach($allBrands as $b): ?><option value="<?= htmlspecialchars($b['name']) ?>"><?= htmlspecialchars($b['name']) ?></option><?php endforeach ?>
       </select>
     </div>
     <div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
@@ -376,6 +422,20 @@ function faIcon(string $cls, string $extra=''): string {
   </div>
 </div>
 
+<!-- Edit brand modal -->
+<div class="overlay" id="editBrandModal">
+  <div class="modal">
+    <h2><i class="fa-solid fa-pen"></i> تعديل البراند</h2>
+    <div class="form-row">
+      <input type="text" id="eBrandName" placeholder="اسم البراند" style="flex:1"/>
+    </div>
+    <div class="modal-acts">
+      <button class="btn btn-c" onclick="closeModal('editBrandModal')"><i class="fa-solid fa-xmark"></i> إلغاء</button>
+      <button class="btn btn-p" onclick="saveBrandEdit()"><i class="fa-solid fa-check"></i> حفظ</button>
+    </div>
+  </div>
+</div>
+
 <!-- Camera Capture modal -->
 <div class="overlay" id="aiCamOverlay">
   <div class="ai-cam-modal">
@@ -399,7 +459,7 @@ function faIcon(string $cls, string $extra=''): string {
 <div class="toast" id="toast"></div>
 
 <script>
-let editId=null, editCatId=null;
+let editId=null, editCatId=null, editBrandId=null;
 
 /* ── AI Camera Capture ── */
 let aiCamStream=null, aiCamTarget='add'; // target: 'add' or 'edit'
@@ -501,6 +561,7 @@ function openEdit(p){
   document.getElementById('eName').value=p.name;
   document.getElementById('ePrice').value=p.price;
   document.getElementById('eCat').value=p.category;
+  document.getElementById('eBrand').value=p.brand||'';
   const img=document.getElementById('eImgPreview');
   if(p.image_path){img.src=p.image_path;img.style.display='block'}else img.style.display='none';
   document.getElementById('editModal').classList.add('open');
@@ -512,6 +573,7 @@ async function saveEdit(){
   fd.append('name',document.getElementById('eName').value);
   fd.append('price',document.getElementById('ePrice').value);
   fd.append('category',document.getElementById('eCat').value);
+  fd.append('brand',document.getElementById('eBrand').value);
   const f=document.getElementById('eImgFile');
   if(f.files[0])fd.append('image',f.files[0]);
   const res=await fetch('api.php',{method:'POST',body:fd});
@@ -565,6 +627,38 @@ async function delCategory(id,name){
   document.getElementById('cat-'+id)?.remove();
   showToast('تم الحذف');
 }
+/* ── Brands ── */
+async function addBrand(){
+  const name=document.getElementById('newBrandName').value.trim();
+  if(!name)return;
+  const fd=new FormData();fd.append('action','add_brand');fd.append('name',name);
+  const res=await fetch('api.php',{method:'POST',body:fd});
+  const d=await res.json();
+  if(d.ok){showToast('تمت الإضافة ✓');setTimeout(()=>location.reload(),500)}
+  else showToast(d.error||'خطأ',false);
+}
+function editBrand(id,name){
+  editBrandId=id;
+  document.getElementById('eBrandName').value=name;
+  document.getElementById('editBrandModal').classList.add('open');
+}
+async function saveBrandEdit(){
+  const fd=new FormData();
+  fd.append('action','edit_brand');fd.append('id',editBrandId);
+  fd.append('name',document.getElementById('eBrandName').value);
+  const res=await fetch('api.php',{method:'POST',body:fd});
+  const d=await res.json();
+  if(d.ok){closeModal('editBrandModal');showToast('تم التعديل ✓');setTimeout(()=>location.reload(),500)}
+  else showToast('خطأ',false);
+}
+async function delBrand(id,name){
+  if(!confirm('حذف براند "'+name+'"؟'))return;
+  const fd=new FormData();fd.append('action','delete_brand');fd.append('id',id);
+  await fetch('api.php',{method:'POST',body:fd});
+  document.getElementById('brand-'+id)?.remove();
+  showToast('تم الحذف');
+}
+
 if(sessionStorage.getItem('fs')==='1') document.documentElement.requestFullscreen().catch(()=>{});
 </script>
 </body>

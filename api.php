@@ -47,14 +47,16 @@ if ($action === 'lookup') {
 
 // ── Product search ─────────────────────────────────────────────────────────
 if ($action === 'search') {
-    $q   = trim($_GET['q'] ?? '');
-    $cat = trim($_GET['cat'] ?? '');
-    $db  = getDB();
-    $sql = 'SELECT * FROM products WHERE (name LIKE ? OR barcode LIKE ?)';
-    $p   = ["%$q%", "%$q%"];
-    if ($cat && $cat !== 'الكل') { $sql .= ' AND category=?'; $p[] = $cat; }
+    $q     = trim($_GET['q']     ?? '');
+    $cat   = trim($_GET['cat']   ?? '');
+    $brand = trim($_GET['brand'] ?? '');
+    $db    = getDB();
+    $sql   = 'SELECT * FROM products WHERE (name LIKE ? OR barcode LIKE ?)';
+    $p     = ["%$q%", "%$q%"];
+    if ($cat   && $cat   !== 'الكل') { $sql .= ' AND category=?'; $p[] = $cat;   }
+    if ($brand && $brand !== 'الكل') { $sql .= ' AND brand=?';    $p[] = $brand; }
     $sql .= ' ORDER BY name LIMIT 60';
-    $st  = $db->prepare($sql); $st->execute($p);
+    $st = $db->prepare($sql); $st->execute($p);
     json_out(['results' => $st->fetchAll()]);
 }
 
@@ -149,15 +151,51 @@ if ($action === 'list_categories') {
     json_out(['categories'=>$cats]);
 }
 
+// ── Brands ─────────────────────────────────────────────────────────────────
+if ($action === 'add_brand') {
+    $name = trim($_POST['name'] ?? '');
+    if (!$name) json_out(['ok'=>false,'error'=>'اسم البراند مطلوب']);
+    $db  = getDB();
+    $max = (int)$db->query('SELECT COALESCE(MAX(sort),0) FROM brands')->fetchColumn();
+    $db->prepare('INSERT OR IGNORE INTO brands (name,sort) VALUES (?,?)')->execute([$name,$max+1]);
+    json_out(['ok'=>true,'id'=>$db->lastInsertId()]);
+}
+
+if ($action === 'edit_brand') {
+    $id   = (int)($_POST['id']   ?? 0);
+    $name = trim($_POST['name']  ?? '');
+    if (!$name || !$id) json_out(['ok'=>false]);
+    $db  = getDB();
+    $old = $db->prepare('SELECT name FROM brands WHERE id=?'); $old->execute([$id]); $oldName=$old->fetchColumn();
+    $db->prepare('UPDATE brands SET name=? WHERE id=?')->execute([$name,$id]);
+    if ($oldName && $oldName !== $name) $db->prepare('UPDATE products SET brand=? WHERE brand=?')->execute([$name,$oldName]);
+    json_out(['ok'=>true]);
+}
+
+if ($action === 'delete_brand') {
+    $id = (int)($_POST['id'] ?? 0);
+    $db = getDB();
+    $name = $db->prepare('SELECT name FROM brands WHERE id=?'); $name->execute([$id]); $name=$name->fetchColumn();
+    $db->prepare('DELETE FROM brands WHERE id=?')->execute([$id]);
+    if ($name) $db->prepare("UPDATE products SET brand='' WHERE brand=?")->execute([$name]);
+    json_out(['ok'=>true]);
+}
+
+if ($action === 'list_brands') {
+    $brands = getDB()->query('SELECT * FROM brands ORDER BY sort,id')->fetchAll();
+    json_out(['brands'=>$brands]);
+}
+
 // ── Products CRUD ──────────────────────────────────────────────────────────
 if ($action === 'add') {
-    $barcode  = trim($_POST['barcode'] ?? '');
-    $name     = trim($_POST['name']    ?? '');
+    $name     = trim($_POST['name']     ?? '');
     $price    = (float)($_POST['price'] ?? 0);
     $category = validCategory($_POST['category'] ?? '');
-    if (!$barcode || !$name) json_out(['ok'=>false,'error'=>'بيانات ناقصة']);
+    $brand    = trim($_POST['brand']    ?? '');
+    $barcode  = trim($_POST['barcode']  ?? '') ?: 'AUTO-'.uniqid();
+    if (!$name) json_out(['ok'=>false,'error'=>'اسم المنتج مطلوب']);
     $db = getDB();
-    $db->prepare('INSERT OR REPLACE INTO products (barcode,name,price,category) VALUES (?,?,?,?)')->execute([$barcode,$name,$price,$category]);
+    $db->prepare('INSERT OR REPLACE INTO products (barcode,name,price,category,brand) VALUES (?,?,?,?,?)')->execute([$barcode,$name,$price,$category,$brand]);
     $pid = $db->lastInsertId();
     $img = '';
     if (!empty($_FILES['image']['name'])) { $img = saveImage($_FILES['image'], $pid); if($img) $db->prepare('UPDATE products SET image_path=? WHERE id=?')->execute([$img,$pid]); }
@@ -165,13 +203,14 @@ if ($action === 'add') {
 }
 
 if ($action === 'edit') {
-    $id       = (int)($_POST['id'] ?? 0);
-    $barcode  = trim($_POST['barcode'] ?? '');
-    $name     = trim($_POST['name']    ?? '');
+    $id       = (int)($_POST['id']      ?? 0);
+    $barcode  = trim($_POST['barcode']  ?? '');
+    $name     = trim($_POST['name']     ?? '');
     $price    = (float)($_POST['price'] ?? 0);
     $category = validCategory($_POST['category'] ?? '');
+    $brand    = trim($_POST['brand']    ?? '');
     $db = getDB();
-    $db->prepare('UPDATE products SET barcode=?,name=?,price=?,category=? WHERE id=?')->execute([$barcode,$name,$price,$category,$id]);
+    $db->prepare('UPDATE products SET barcode=?,name=?,price=?,category=?,brand=? WHERE id=?')->execute([$barcode,$name,$price,$category,$brand,$id]);
     $img = '';
     if (!empty($_FILES['image']['name'])) { $img = saveImage($_FILES['image'], $id); if($img) $db->prepare('UPDATE products SET image_path=? WHERE id=?')->execute([$img,$id]); }
     json_out(['ok'=>true,'image_path'=>$img]);
