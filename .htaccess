@@ -1,0 +1,17 @@
+Options -Indexes
+
+# حماية الملفات الحساسة
+<FilesMatch "^(config\.php|db\.php|products\.db|\.git)">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# الصفحة الرئيسية
+DirectoryIndex index.php
+
+# Rewrite
+RewriteEngine On
+RewriteBase /
+
+# منع الوصول لملفات .git
+RewriteRule ^\.git - [F,L]
