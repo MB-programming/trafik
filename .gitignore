@@ -1,4 +1,3 @@
 *.db
-config.php
 __pycache__/
 *.pyc

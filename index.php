@@ -155,8 +155,10 @@ $catClass = ['غذائية'=>'food','سجاير'=>'cig','مشروبات'=>'drink
 <header>
   <h1>🛒 ترافيك</h1>
   <div class="hbtns">
-    <a href="scanner.php" class="hbtn">📷 باركود</a>
-    <a href="fastscan.php" class="hbtn hi">⚡ Fast Scan</a>
+    <a href="pos.php"      class="hbtn hi">🏪 POS</a>
+    <a href="history.php"  class="hbtn">📋 السجل</a>
+    <a href="scanner.php"  class="hbtn">📷 باركود</a>
+    <a href="fastscan.php" class="hbtn">⚡ Fast Scan</a>
   </div>
 </header>
 

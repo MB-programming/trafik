@@ -1,7 +1,6 @@
 <?php
 function getDB(): PDO {
-    $path = __DIR__ . '/products.db';
-    $db   = new PDO('sqlite:' . $path);
+    $db = new PDO('sqlite:' . __DIR__ . '/products.db');
     $db->setAttribute(PDO::ATTR_ERRMODE,            PDO::ERRMODE_EXCEPTION);
     $db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
     return $db;
@@ -16,7 +15,24 @@ function initDB(): void {
             name     TEXT    NOT NULL,
             price    REAL    NOT NULL,
             category TEXT    NOT NULL DEFAULT 'منوعات'
-        )
+        );
+
+        CREATE TABLE IF NOT EXISTS orders (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
+            total      REAL    NOT NULL,
+            notes      TEXT    DEFAULT ''
+        );
+
+        CREATE TABLE IF NOT EXISTS order_items (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_id   INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+            product_id INTEGER,
+            barcode    TEXT,
+            name       TEXT    NOT NULL,
+            price      REAL    NOT NULL,
+            qty        INTEGER NOT NULL DEFAULT 1
+        );
     ");
 }
 
