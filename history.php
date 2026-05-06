@@ -3,33 +3,58 @@ require_once __DIR__ . '/auth.php';
 requireLogin();
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/db.php';
-$cur = defined('CURRENCY_LABEL') ? CURRENCY_LABEL : 'ج';
+$cur = defined('CURRENCY_LABEL') ? CURRENCY_LABEL : '€';
 
 $db = getDB();
 
-// pagination
-$page     = max(1,(int)($_GET['page']??1));
-$perPage  = 20;
-$offset   = ($page-1)*$perPage;
-$total_orders = (int)$db->query('SELECT COUNT(*) FROM orders')->fetchColumn();
-$totalPages   = max(1,(int)ceil($total_orders/$perPage));
+// date filter
+$from  = $_GET['from']  ?? '';
+$to    = $_GET['to']    ?? '';
+$today = date('Y-m-d');
 
-$orders = $db->prepare('SELECT * FROM orders ORDER BY created_at DESC LIMIT ? OFFSET ?');
-$orders->execute([$perPage,$offset]);
-$orders = $orders->fetchAll();
+// count with filter
+$cSql = 'SELECT COUNT(*) FROM orders WHERE 1=1';
+$cP   = [];
+if($from){ $cSql.=' AND DATE(created_at)>=?'; $cP[]=$from; }
+if($to)  { $cSql.=' AND DATE(created_at)<=?'; $cP[]=$to;   }
+$total_orders = (int)$db->prepare($cSql)->execute($cP) ? (int)$db->prepare($cSql)->execute($cP) : 0;
+$stmt = $db->prepare($cSql); $stmt->execute($cP);
+$total_orders = (int)$stmt->fetchColumn();
 
-// fetch items for all orders on this page
+$page      = max(1,(int)($_GET['page']??1));
+$perPage   = 20;
+$offset    = ($page-1)*$perPage;
+$totalPages= max(1,(int)ceil($total_orders/$perPage));
+
+$oSql = 'SELECT * FROM orders WHERE 1=1';
+$oP   = [];
+if($from){ $oSql.=' AND DATE(created_at)>=?'; $oP[]=$from; }
+if($to)  { $oSql.=' AND DATE(created_at)<=?'; $oP[]=$to;   }
+$oSql .= ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+$oP[] = $perPage; $oP[] = $offset;
+$st = $db->prepare($oSql); $st->execute($oP);
+$orders = $st->fetchAll();
+
+// items
 $orderIds = array_column($orders,'id');
 $items    = [];
 if($orderIds){
-    $in  = implode(',', array_fill(0,count($orderIds),'?'));
-    $st  = $db->prepare("SELECT * FROM order_items WHERE order_id IN ($in)");
+    $in = implode(',', array_fill(0,count($orderIds),'?'));
+    $st = $db->prepare("SELECT * FROM order_items WHERE order_id IN ($in)");
     $st->execute($orderIds);
     foreach($st->fetchAll() as $it) $items[$it['order_id']][] = $it;
 }
 
-// stats
-$stats = $db->query('SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as revenue FROM orders')->fetch();
+// stats for filtered range
+$sSql = 'SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as revenue FROM orders WHERE 1=1';
+$sP   = [];
+if($from){ $sSql.=' AND DATE(created_at)>=?'; $sP[]=$from; }
+if($to)  { $sSql.=' AND DATE(created_at)<=?'; $sP[]=$to;   }
+$st = $db->prepare($sSql); $st->execute($sP);
+$stats = $st->fetch();
+
+// build export query string
+$exportQ = http_build_query(['from'=>$from,'to'=>$to]);
 ?>
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -37,6 +62,7 @@ $stats = $db->query('SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as revenue F
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>سجل المبيعات - ترافيك</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
   <style>
     :root{
       --primary:#2563eb;--primary-dark:#1d4ed8;
@@ -50,33 +76,49 @@ $stats = $db->query('SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as revenue F
     header{
       background:var(--primary);color:#fff;padding:12px 15px;
       display:flex;align-items:center;gap:10px;
-      position:sticky;top:0;z-index:20;box-shadow:0 2px 8px rgba(0,0,0,.2);
+      position:sticky;top:0;z-index:20;box-shadow:0 2px 8px rgba(0,0,0,.2);flex-wrap:wrap;
     }
     header a{color:rgba(255,255,255,.8);text-decoration:none;font-size:1.3rem}
-    header h1{font-size:1.05rem;flex:1}
-    .hbtn{background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.3);padding:6px 12px;border-radius:8px;font-size:.82rem;font-weight:600;cursor:pointer;text-decoration:none}
+    header h1{font-size:1.05rem;flex:1;display:flex;align-items:center;gap:7px}
+    .hbtn{background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.3);padding:6px 12px;border-radius:8px;font-size:.82rem;font-weight:600;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:5px}
+    .hbtn:hover{background:rgba(255,255,255,.28)}
 
     .container{max-width:900px;margin:0 auto;padding:16px 14px}
 
+    /* filter bar */
+    .filter-bar{
+      background:var(--card);border:1px solid var(--border);border-radius:12px;
+      padding:12px 14px;margin-bottom:16px;
+      display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+    }
+    .filter-bar label{font-size:.8rem;color:var(--muted);display:flex;align-items:center;gap:5px}
+    .filter-bar input[type=date]{
+      padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;
+      font-size:.87rem;background:#f8fafc;color:var(--text);
+    }
+    .filter-bar input[type=date]:focus{outline:2px solid var(--primary);border-color:transparent}
+    .fbtn{padding:7px 14px;border:none;border-radius:8px;font-size:.83rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+    .fbtn-today{background:#eff6ff;color:var(--primary);border:1.5px solid #bfdbfe}
+    .fbtn-today:hover{background:#dbeafe}
+    .fbtn-filter{background:var(--primary);color:#fff}
+    .fbtn-filter:hover{background:var(--primary-dark)}
+    .fbtn-clear{background:var(--bg);color:var(--muted);border:1.5px solid var(--border);text-decoration:none}
+    .export-group{margin-right:auto;display:flex;gap:6px}
+    .fbtn-pdf{background:#dc2626;color:#fff}
+    .fbtn-pdf:hover{background:#b91c1c}
+    .fbtn-excel{background:#16a34a;color:#fff}
+    .fbtn-excel:hover{background:#15803d}
+
     /* stats */
     .stats{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px}
-    .stat-card{
-      flex:1;min-width:130px;background:var(--card);border:1px solid var(--border);
-      border-radius:12px;padding:14px 16px;
-    }
+    .stat-card{flex:1;min-width:130px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
     .stat-label{font-size:.78rem;color:var(--muted);margin-bottom:4px}
     .stat-val{font-size:1.5rem;font-weight:900;color:var(--primary)}
     .stat-val.green{color:var(--success)}
 
     /* order cards */
-    .order-card{
-      background:var(--card);border:1px solid var(--border);border-radius:12px;
-      margin-bottom:12px;overflow:hidden;
-    }
-    .order-head{
-      display:flex;align-items:center;gap:10px;padding:12px 14px;
-      cursor:pointer;user-select:none;
-    }
+    .order-card{background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:12px;overflow:hidden}
+    .order-head{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;user-select:none}
     .order-head:hover{background:#f8fafc}
     .order-id{font-size:.8rem;color:var(--muted);font-family:monospace;white-space:nowrap}
     .order-date{flex:1;font-size:.85rem;color:var(--muted)}
@@ -86,7 +128,6 @@ $stats = $db->query('SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as revenue F
     .arrow.open{transform:rotate(180deg)}
     .btn-del{background:none;border:1px solid #fca5a5;color:var(--danger);border-radius:6px;padding:4px 10px;font-size:.78rem;cursor:pointer}
     .btn-del:hover{background:#fee2e2}
-
     .order-body{display:none;border-top:1px solid var(--border);padding:10px 14px}
     .order-body.open{display:block}
     .oi{display:flex;justify-content:space-between;padding:5px 0;font-size:.88rem;border-bottom:1px solid #f8fafc}
@@ -99,10 +140,7 @@ $stats = $db->query('SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as revenue F
 
     /* pagination */
     .pagination{display:flex;gap:6px;justify-content:center;margin-top:20px;flex-wrap:wrap}
-    .plink{
-      padding:7px 14px;border-radius:8px;text-decoration:none;font-size:.88rem;font-weight:600;
-      background:var(--card);border:1px solid var(--border);color:var(--text);
-    }
+    .plink{padding:7px 14px;border-radius:8px;text-decoration:none;font-size:.88rem;font-weight:600;background:var(--card);border:1px solid var(--border);color:var(--text)}
     .plink.active{background:var(--primary);color:#fff;border-color:var(--primary)}
     .plink:hover:not(.active){background:#f1f5f9}
 
@@ -112,21 +150,38 @@ $stats = $db->query('SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as revenue F
 <body>
 
 <header>
-  <a href="index.php">←</a>
-  <h1>📋 سجل المبيعات</h1>
-  <a href="pos.php" class="hbtn">🏪 POS</a>
+  <a href="index.php"><i class="fa-solid fa-arrow-right"></i></a>
+  <h1><i class="fa-solid fa-clock-rotate-left"></i> سجل المبيعات</h1>
+  <a href="pos.php" class="hbtn"><i class="fa-solid fa-store"></i> POS</a>
 </header>
 
 <div class="container">
 
+  <!-- Filter bar -->
+  <form class="filter-bar" method="get">
+    <label><i class="fa-solid fa-calendar-day"></i> من</label>
+    <input type="date" name="from" value="<?= htmlspecialchars($from) ?>"/>
+    <label>إلى</label>
+    <input type="date" name="to"   value="<?= htmlspecialchars($to) ?>"/>
+    <button type="submit" class="fbtn fbtn-filter"><i class="fa-solid fa-filter"></i> تصفية</button>
+    <button type="button" class="fbtn fbtn-today" onclick="setToday()"><i class="fa-solid fa-calendar-check"></i> اليوم</button>
+    <?php if($from||$to): ?>
+    <a href="history.php" class="fbtn fbtn-clear"><i class="fa-solid fa-xmark"></i> إلغاء</a>
+    <?php endif ?>
+    <div class="export-group">
+      <a href="export.php?format=pdf&<?= $exportQ ?>" target="_blank" class="fbtn fbtn-pdf"><i class="fa-solid fa-file-pdf"></i> PDF</a>
+      <a href="export.php?format=csv&<?= $exportQ ?>" class="fbtn fbtn-excel"><i class="fa-solid fa-file-excel"></i> Excel</a>
+    </div>
+  </form>
+
   <!-- Stats -->
   <div class="stats">
     <div class="stat-card">
-      <div class="stat-label">إجمالي الفواتير</div>
+      <div class="stat-label"><?= $from||$to ? 'فواتير الفترة' : 'إجمالي الفواتير' ?></div>
       <div class="stat-val"><?= number_format($stats['cnt']) ?></div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">إجمالي المبيعات</div>
+      <div class="stat-label"><?= $from||$to ? 'مبيعات الفترة' : 'إجمالي المبيعات' ?></div>
       <div class="stat-val green"><?= number_format($stats['revenue'],2) ?> <?= htmlspecialchars($cur) ?></div>
     </div>
     <div class="stat-card">
@@ -144,7 +199,7 @@ $stats = $db->query('SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as revenue F
   <div class="order-card">
     <div class="order-head" onclick="toggle(<?= $o['id'] ?>)">
       <span class="order-id">#<?= $o['id'] ?></span>
-      <span class="order-date">🕒 <?= $o['created_at'] ?></span>
+      <span class="order-date"><i class="fa-solid fa-clock" style="font-size:.75rem"></i> <?= $o['created_at'] ?></span>
       <span class="order-items-count"><?= $itemCount ?> قطعة</span>
       <span class="order-total"><?= number_format($o['total'],2) ?> <?= htmlspecialchars($cur) ?></span>
       <span class="arrow" id="arr-<?= $o['id'] ?>">▼</span>
@@ -160,7 +215,7 @@ $stats = $db->query('SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as revenue F
       </div>
       <?php endforeach ?>
       <?php if($o['notes']): ?>
-      <div class="order-notes">📝 <?= htmlspecialchars($o['notes']) ?></div>
+      <div class="order-notes"><i class="fa-solid fa-note-sticky"></i> <?= htmlspecialchars($o['notes']) ?></div>
       <?php endif ?>
     </div>
   </div>
@@ -169,16 +224,23 @@ $stats = $db->query('SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as revenue F
   <!-- Pagination -->
   <?php if($totalPages>1): ?>
   <div class="pagination">
-    <?php if($page>1): ?><a href="?page=<?=$page-1?>" class="plink">السابق</a><?php endif ?>
+    <?php
+    $pq = array_filter(['from'=>$from,'to'=>$to]);
+    $pqs = $pq ? '&'.http_build_query($pq) : '';
+    ?>
+    <?php if($page>1): ?><a href="?page=<?=$page-1?><?=$pqs?>" class="plink">السابق</a><?php endif ?>
     <?php for($p=max(1,$page-2);$p<=min($totalPages,$page+2);$p++): ?>
-    <a href="?page=<?=$p?>" class="plink <?=$p===$page?'active':''?>"><?=$p?></a>
+    <a href="?page=<?=$p?><?=$pqs?>" class="plink <?=$p===$page?'active':''?>"><?=$p?></a>
     <?php endfor ?>
-    <?php if($page<$totalPages): ?><a href="?page=<?=$page+1?>" class="plink">التالي</a><?php endif ?>
+    <?php if($page<$totalPages): ?><a href="?page=<?=$page+1?><?=$pqs?>" class="plink">التالي</a><?php endif ?>
   </div>
   <?php endif ?>
 
   <?php else: ?>
-  <div class="empty">لا توجد مبيعات بعد — ابدأ من <a href="pos.php" style="color:var(--primary)">نقطة البيع</a></div>
+  <div class="empty"><i class="fa-solid fa-box-open" style="font-size:2rem;display:block;margin-bottom:8px;opacity:.3"></i>
+    لا توجد مبيعات<?= $from||$to?' في هذه الفترة':'' ?>
+    <?php if(!$from&&!$to): ?> — ابدأ من <a href="pos.php" style="color:var(--primary)">نقطة البيع</a><?php endif ?>
+  </div>
   <?php endif ?>
 
 </div>
@@ -195,6 +257,12 @@ async function delOrder(id){
   const fd=new FormData(); fd.append('action','delete_order'); fd.append('id',id);
   await fetch('api.php',{method:'POST',body:fd});
   document.querySelector(`[onclick="toggle(${id})"]`)?.closest('.order-card')?.remove();
+}
+function setToday(){
+  const t='<?= $today ?>';
+  document.querySelector('[name=from]').value=t;
+  document.querySelector('[name=to]').value=t;
+  document.querySelector('.filter-bar').submit();
 }
 if(sessionStorage.getItem('fs')==='1') document.documentElement.requestFullscreen().catch(()=>{});
 </script>

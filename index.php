@@ -173,16 +173,9 @@ function faIcon(string $cls, string $extra=''): string {
       <h2><i class="fa-solid fa-plus-circle"></i> إضافة منتج جديد</h2>
       <form id="addForm" onsubmit="addProduct(event)" enctype="multipart/form-data">
         <div class="form-row" style="margin-bottom:8px">
-          <input type="text"   name="barcode" id="addBarcode" placeholder="باركود" required/>
-          <div style="display:flex;gap:6px;flex:1;min-width:140px">
-            <input type="text" name="name" id="addName" placeholder="اسم المنتج" required style="flex:1;min-width:0;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:.92rem"/>
-            <?php if($hasAI): ?>
-            <button type="button" class="btn-ai-id" onclick="openAiCapture('add')" title="تصوير للتعرف التلقائي">
-              <i class="fa-solid fa-wand-magic-sparkles"></i> AI
-            </button>
-            <?php endif ?>
-          </div>
-          <input type="number" name="price" id="addPrice" placeholder="السعر (ج)" step="0.01" min="0" required/>
+          <input type="text"   name="barcode" id="addBarcode" placeholder="باركود"/>
+          <input type="text"   name="name"    id="addName"    placeholder="اسم المنتج" required/>
+          <input type="number" name="price"   id="addPrice"   placeholder="السعر" step="0.01" min="0" required/>
           <select name="category" id="addCat">
             <?php foreach($allCats as $c): ?>
             <option value="<?= htmlspecialchars($c['name']) ?>"><?= htmlspecialchars($c['name']) ?></option>
@@ -190,8 +183,12 @@ function faIcon(string $cls, string $extra=''): string {
           </select>
         </div>
         <div class="form-row" style="align-items:center;gap:10px">
+          <button type="button" onclick="openCamCapture('add')"
+            style="display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border:1px dashed var(--border);border-radius:8px;background:#f8fafc;color:var(--muted);font-size:.82rem;cursor:pointer">
+            <i class="fa-solid fa-camera"></i> تصوير
+          </button>
           <label style="font-size:.82rem;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;gap:6px;border:1px dashed var(--border);padding:8px 12px;border-radius:8px;background:#f8fafc">
-            <i class="fa-solid fa-image"></i> صورة المنتج
+            <i class="fa-solid fa-image"></i> اختيار صورة
             <input type="file" name="image" id="addImgFile" accept="image/*" style="display:none" onchange="previewImg(this,'addPreview')"/>
           </label>
           <img id="addPreview" class="img-preview"/>
@@ -329,23 +326,20 @@ function faIcon(string $cls, string $extra=''): string {
     <h2><i class="fa-solid fa-pen"></i> تعديل المنتج</h2>
     <div class="form-row">
       <input type="text"   id="eBarcode" placeholder="باركود"/>
-      <div style="display:flex;gap:6px;flex:1;min-width:140px">
-        <input type="text" id="eName" placeholder="اسم المنتج" style="flex:1;min-width:0;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:.92rem"/>
-        <?php if($hasAI): ?>
-        <button type="button" class="btn-ai-id" onclick="openAiCapture('edit')" title="تصوير للتعرف التلقائي">
-          <i class="fa-solid fa-wand-magic-sparkles"></i> AI
-        </button>
-        <?php endif ?>
-      </div>
+      <input type="text"   id="eName"    placeholder="اسم المنتج"/>
       <input type="number" id="ePrice"   placeholder="السعر" step="0.01" min="0"/>
       <select id="eCat">
         <?php foreach($allCats as $c): ?><option value="<?= htmlspecialchars($c['name']) ?>"><?= htmlspecialchars($c['name']) ?></option><?php endforeach ?>
       </select>
     </div>
-    <div style="margin-top:10px;display:flex;align-items:center;gap:10px">
+    <div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <img id="eImgPreview" class="img-preview" style="display:block"/>
+      <button type="button" onclick="openCamCapture('edit')"
+        style="display:inline-flex;align-items:center;gap:5px;padding:7px 11px;border:1px dashed #93c5fd;border-radius:8px;background:#eff6ff;color:var(--primary);font-size:.82rem;cursor:pointer">
+        <i class="fa-solid fa-camera"></i> تصوير
+      </button>
       <label style="font-size:.82rem;cursor:pointer;color:var(--primary);display:inline-flex;align-items:center;gap:5px;border:1px dashed #93c5fd;padding:7px 11px;border-radius:8px">
-        <i class="fa-solid fa-image"></i> تغيير الصورة
+        <i class="fa-solid fa-image"></i> اختيار صورة
         <input type="file" id="eImgFile" accept="image/*" style="display:none" onchange="previewImg(this,'eImgPreview')"/>
       </label>
     </div>
@@ -382,18 +376,18 @@ function faIcon(string $cls, string $extra=''): string {
   </div>
 </div>
 
-<!-- AI Camera Capture modal -->
+<!-- Camera Capture modal -->
 <div class="overlay" id="aiCamOverlay">
   <div class="ai-cam-modal">
     <div class="ai-cam-hdr">
-      <h3><i class="fa-solid fa-wand-magic-sparkles" style="color:#60a5fa"></i> تصوير للتعرف التلقائي</h3>
+      <h3><i class="fa-solid fa-camera" style="color:#60a5fa"></i> تصوير المنتج</h3>
     </div>
     <video id="aiCamVideo" autoplay playsinline muted></video>
     <canvas id="aiCamCanvas"></canvas>
-    <div class="ai-status" id="aiCamStatus">وجّه الكاميرا على المنتج ثم اضغط تصوير</div>
+    <div class="ai-status" id="aiCamStatus">وجّه الكاميرا على المنتج واضغط تصوير</div>
     <div class="ai-cam-actions">
-      <button class="btn-capture" id="btnCapture" onclick="captureAndIdentify()">
-        <i class="fa-solid fa-camera"></i> تصوير وملء البيانات
+      <button class="btn-capture" id="btnCapture" onclick="capturePhoto()">
+        <i class="fa-solid fa-camera"></i> تصوير
       </button>
       <button class="btn-cam-close" onclick="closeAiCapture()">
         <i class="fa-solid fa-xmark"></i>
@@ -405,19 +399,16 @@ function faIcon(string $cls, string $extra=''): string {
 <div class="toast" id="toast"></div>
 
 <script>
-const GEMINI_KEY  = <?= json_encode($geminiKey) ?>;
-const CATEGORIES  = <?= json_encode(array_column($allCats,'name'), JSON_UNESCAPED_UNICODE) ?>;
 let editId=null, editCatId=null;
 
 /* ── AI Camera Capture ── */
 let aiCamStream=null, aiCamTarget='add'; // target: 'add' or 'edit'
 
-async function openAiCapture(target){
+async function openCamCapture(target){
   aiCamTarget=target;
-  document.getElementById('aiCamStatus').textContent='وجّه الكاميرا على المنتج — AI هيملي كل البيانات';
-  document.getElementById('btnCapture').classList.remove('thinking');
+  document.getElementById('aiCamStatus').textContent='وجّه الكاميرا على المنتج واضغط تصوير';
   document.getElementById('btnCapture').disabled=false;
-  document.getElementById('btnCapture').innerHTML='<i class="fa-solid fa-camera"></i> تصوير وملء البيانات';
+  document.getElementById('btnCapture').innerHTML='<i class="fa-solid fa-camera"></i> تصوير';
   document.getElementById('aiCamOverlay').classList.add('open');
   try{
     aiCamStream=await navigator.mediaDevices.getUserMedia({
@@ -434,92 +425,27 @@ function closeAiCapture(){
   document.getElementById('aiCamOverlay').classList.remove('open');
 }
 
-async function captureAndIdentify(){
+function capturePhoto(){
   const video=document.getElementById('aiCamVideo');
   const canvas=document.getElementById('aiCamCanvas');
-  const btn=document.getElementById('btnCapture');
   const status=document.getElementById('aiCamStatus');
-
   if(!aiCamStream||video.readyState<2){status.textContent='الكاميرا لم تُفعَّل بعد';return}
 
-  // capture frame
   canvas.width=video.videoWidth; canvas.height=video.videoHeight;
   canvas.getContext('2d').drawImage(video,0,0);
-  const b64=canvas.toDataURL('image/jpeg',.85).split(',')[1];
 
-  btn.disabled=true; btn.classList.add('thinking');
-  btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> جارٍ التعرف...';
-  status.textContent='يحلل الصورة...';
+  const isAdd=aiCamTarget==='add';
+  canvas.toBlob(blob=>{
+    if(!blob)return;
+    const file=new File([blob],'product.jpg',{type:'image/jpeg'});
+    const dt=new DataTransfer(); dt.items.add(file);
+    document.getElementById(isAdd?'addImgFile':'eImgFile').files=dt.files;
+    const prev=document.getElementById(isAdd?'addPreview':'eImgPreview');
+    prev.src=canvas.toDataURL('image/jpeg');
+    prev.style.display='block';
+  },'image/jpeg',0.9);
 
-  try{
-    const catList = CATEGORIES.join('، ');
-    const prompt =
-      `أمامك صورة لمنتج في متجر.\n` +
-      `استخرج البيانات التالية بدقة:\n` +
-      `1. name: اسم المنتج أو البراند (عربي أو أجنبي، 6 كلمات كحد أقصى)\n` +
-      `2. price: السعر الظاهر في الصورة كرقم فقط بدون عملة (مثال: 12.50) — اكتب "" إذا لم يكن مرئياً\n` +
-      `3. barcode: رقم الباركود إذا كان مرئياً وواضحاً — اكتب "" إذا لم يكن مرئياً\n` +
-      `4. category: اختر القسم الأنسب من هذه الأقسام فقط: ${catList}\n\n` +
-      `أجب بـ JSON فقط بهذا الشكل بالضبط بدون أي نص إضافي:\n` +
-      `{"name":"...","price":"...","barcode":"...","category":"..."}`;
-
-    const url=`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`;
-    const payload={
-      contents:[{parts:[
-        {inline_data:{mime_type:'image/jpeg',data:b64}},
-        {text:prompt}
-      ]}],
-      generationConfig:{maxOutputTokens:120,temperature:0.1}
-    };
-    const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-    const d=await r.json();
-    const raw=(d.candidates?.[0]?.content?.parts?.[0]?.text||'').trim();
-
-    // extract JSON even if gemini wraps it in ```json ... ```
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if(!jsonMatch){
-      status.textContent='لم يتعرف — جرب تاني أو صوّر أوضح';
-      btn.disabled=false; btn.classList.remove('thinking');
-      btn.innerHTML='<i class="fa-solid fa-camera"></i> تصوير للتعرف';
-      return;
-    }
-
-    let info;
-    try{ info=JSON.parse(jsonMatch[0]); }
-    catch(e){ info={}; }
-
-    const isAdd = aiCamTarget==='add';
-    if(info.name)    document.getElementById(isAdd?'addName':'eName').value    = info.name;
-    if(info.price)   document.getElementById(isAdd?'addPrice':'ePrice').value  = info.price;
-    if(info.barcode) document.getElementById(isAdd?'addBarcode':'eBarcode').value = info.barcode;
-    if(info.category){
-      const sel=document.getElementById(isAdd?'addCat':'eCat');
-      // try exact match first, then partial
-      const opt=[...sel.options].find(o=>o.value===info.category||info.category.includes(o.value)||o.value.includes(info.category));
-      if(opt) sel.value=opt.value;
-    }
-
-    // set captured photo as product image
-    canvas.toBlob(blob=>{
-      if(!blob)return;
-      const file=new File([blob],'ai-capture.jpg',{type:'image/jpeg'});
-      const dt=new DataTransfer(); dt.items.add(file);
-      const inp=document.getElementById(isAdd?'addImgFile':'eImgFile');
-      inp.files=dt.files;
-      const prev=document.getElementById(isAdd?'addPreview':'eImgPreview');
-      prev.src=canvas.toDataURL('image/jpeg');
-      prev.style.display='block';
-    },'image/jpeg',0.85);
-
-    const filled=[info.name,info.price?'السعر':'',info.barcode?'الباركود':''].filter(Boolean).join(' · ');
-    status.innerHTML=`<i class="fa-solid fa-circle-check" style="color:#4ade80"></i> <strong style="color:#f1f5f9">${filled}</strong>`;
-    setTimeout(()=>closeAiCapture(), 1400);
-
-  }catch(e){
-    status.textContent='خطأ في الاتصال بـ Gemini';
-    btn.disabled=false; btn.classList.remove('thinking');
-    btn.innerHTML='<i class="fa-solid fa-camera"></i> تصوير للتعرف';
-  }
+  closeAiCapture();
 }
 
 document.getElementById('aiCamOverlay').addEventListener('click',function(e){if(e.target===this)closeAiCapture()});
