@@ -92,7 +92,7 @@ function faIcon(string $cls, string $extra=''): string {
     .cat-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:13px;display:flex;align-items:center;gap:10px}
     .cat-icon-wrap{width:44px;height:44px;border-radius:10px;background:#eff6ff;color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:1.25rem;flex-shrink:0}
     .cat-info{flex:1;min-width:0}
-    .cat-name{font-weight:700;font-size:.93rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .cat-name{font-weight:700;font-size:.93rem;word-break:break-word;line-height:1.3}
     .cat-count{font-size:.76rem;color:var(--muted)}
     .cat-acts{display:flex;gap:5px;flex-shrink:0}
 

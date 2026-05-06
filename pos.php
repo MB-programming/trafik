@@ -209,6 +209,18 @@ $currency = defined('CURRENCY_LABEL') ? CURRENCY_LABEL : 'ج';
     /* ── Scanner modal ── */
     .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:100;align-items:center;justify-content:center;padding:12px}
     .overlay.open{display:flex}
+    /* ── Floating calc button ── */
+    .calc-fab{
+      position:fixed;left:12px;bottom:76px;
+      width:40px;height:40px;border-radius:50%;
+      background:#1e293b;color:#fff;
+      display:flex;align-items:center;justify-content:center;
+      font-size:.95rem;box-shadow:0 3px 12px rgba(0,0,0,.35);
+      text-decoration:none;z-index:50;opacity:.85;
+      transition:.15s;
+    }
+    .calc-fab:hover{opacity:1;transform:scale(1.08)}
+
     /* ── Toast ── */
     .toast{
       position:fixed;bottom:100px;left:50%;transform:translateX(-50%);
@@ -248,7 +260,7 @@ $currency = defined('CURRENCY_LABEL') ? CURRENCY_LABEL : 'ج';
   </button>
   <?php foreach($cats as $c): ?>
   <button class="ctab" data-cat="<?= htmlspecialchars($c['name']) ?>"
-          onclick="setcat(this,<?= json_encode($c['name'],JSON_UNESCAPED_UNICODE) ?>)">
+          onclick="setcat(this,<?= htmlspecialchars(json_encode($c['name'],JSON_UNESCAPED_UNICODE)) ?>)">
     <i class="fa-solid fa-<?= htmlspecialchars($c['icon']) ?>"></i>
     <?= htmlspecialchars($c['name']) ?>
   </button>
@@ -295,6 +307,7 @@ $currency = defined('CURRENCY_LABEL') ? CURRENCY_LABEL : 'ج';
   </button>
 </div>
 
+<a href="calc.php" class="calc-fab" title="حاسبة"><i class="fa-solid fa-calculator"></i></a>
 <div class="toast" id="toast"></div>
 
 <script>
