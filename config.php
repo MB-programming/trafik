@@ -3,6 +3,10 @@
 define('ADMIN_USER', 'minaboules');
 define('ADMIN_PASS', 'mina2002306');
 
+// ── Currency ───────────────────────────────────────────────────────────────
+define('CURRENCY_LABEL',  '€');      // عرض العملة
+define('CURRENCY_NAME',   'يورو');   // الاسم الكامل
+
 // ── AI Provider ────────────────────────────────────────────────────────────
 // 'gemini' = مجاني | 'claude' = مدفوع | '' = بدون AI (باركود فقط)
 define('AI_PROVIDER',       'gemini');

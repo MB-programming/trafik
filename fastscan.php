@@ -6,6 +6,8 @@ requireLogin();
 
 $geminiKey = (AI_PROVIDER === 'gemini') ? GEMINI_API_KEY : '';
 $hasAI     = AI_PROVIDER !== '' && $geminiKey !== '';
+$currency  = defined('CURRENCY_NAME') ? CURRENCY_NAME : 'جنيه';
+$curLabel  = defined('CURRENCY_LABEL') ? CURRENCY_LABEL : 'ج';
 
 // load all products from local DB and pass to JS
 $db       = getDB();
@@ -240,7 +242,7 @@ function showFound(product, aiLabel){
       </div>
       <div class="rc-price-wrap">
         <div class="rc-price">${parseFloat(product.price).toFixed(2)}</div>
-        <div class="rc-cur">جنيه</div>
+        <div class="rc-cur"><?= htmlspecialchars($curLabel) ?></div>
       </div>
     </div>
     ${aiLabel!==product.name?`<div class="rc-ai"><i class="fa-solid fa-robot"></i> AI رصد: ${esc(aiLabel)}</div>`:''}`;

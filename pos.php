@@ -3,8 +3,9 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/auth.php';
 requireLogin();
-$db   = getDB();
-$cats = $db->query('SELECT * FROM categories ORDER BY sort,id')->fetchAll();
+$db       = getDB();
+$cats     = $db->query('SELECT * FROM categories ORDER BY sort,id')->fetchAll();
+$currency = defined('CURRENCY_LABEL') ? CURRENCY_LABEL : 'ج';
 ?>
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -126,12 +127,19 @@ $cats = $db->query('SELECT * FROM categories ORDER BY sort,id')->fetchAll();
     .prod-badge{
       position:absolute;top:7px;left:7px;
       background:var(--success);color:#fff;
-      border-radius:20px;padding:4px 10px;
+      border-radius:20px;padding:0 4px 0 0;
       font-size:.78rem;font-weight:800;
       display:none;box-shadow:0 2px 6px rgba(0,0,0,.25);
-      align-items:center;gap:4px;
+      align-items:center;gap:0;overflow:hidden;
     }
     .prod-card.in-cart .prod-badge{display:flex}
+    .badge-minus{
+      background:rgba(0,0,0,.2);border:none;color:#fff;
+      padding:4px 8px;font-size:.95rem;line-height:1;
+      cursor:pointer;font-weight:900;flex-shrink:0;
+    }
+    .badge-minus:active{background:rgba(0,0,0,.4)}
+    .badge-qty{padding:0 8px;font-size:.82rem}
 
     .prod-ripple{
       position:absolute;inset:0;
@@ -211,6 +219,7 @@ $cats = $db->query('SELECT * FROM categories ORDER BY sort,id')->fetchAll();
   <span class="hdr-title"><i class="fa-solid fa-store"></i> نقطة البيع</span>
   <a href="history.php" class="icon-btn" title="سجل المبيعات"><i class="fa-solid fa-clock-rotate-left"></i></a>
   <a href="fastscan.php" class="icon-btn" title="Fast Scan"><i class="fa-solid fa-bolt"></i></a>
+  <a href="calc.php"    class="icon-btn" title="كالكوليتور"><i class="fa-solid fa-calculator"></i></a>
   <a href="logout.php"  class="icon-btn" title="خروج"><i class="fa-solid fa-right-from-bracket"></i></a>
 </div>
 
@@ -256,7 +265,7 @@ $cats = $db->query('SELECT * FROM categories ORDER BY sort,id')->fetchAll();
     </div>
     <div class="pb-total-wrap">
       <span class="pb-total" id="pbTotal">0.00</span>
-      <span class="pb-cur">ج</span>
+      <span class="pb-cur"><?= htmlspecialchars($currency) ?></span>
     </div>
   </div>
   <button class="btn-pay" id="btnPay" onclick="pay()" disabled>
@@ -282,6 +291,7 @@ $cats = $db->query('SELECT * FROM categories ORDER BY sort,id')->fetchAll();
 
 <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
 <script>
+const CURRENCY = <?= json_encode($currency) ?>;
 let cart=[], currentCat='', allProducts=[], searchTimer=null, scanStream=null;
 
 /* ── Helpers ── */
@@ -318,19 +328,23 @@ function renderGrid(products){
     const imgHtml=p.image_path
       ?`<img class="prod-img" src="${esc(p.image_path)}" loading="lazy" alt="${esc(p.name)}"/>`
       :`<div class="prod-noimg"><i class="fa-solid fa-box"></i></div>`;
+    const pJson=JSON.stringify(p).replace(/"/g,'&quot;');
     return `
       <div class="prod-card ${qty>0?'in-cart':''}" id="pc-${p.id}"
-           onclick="addToCart(${JSON.stringify(p).replace(/"/g,'&quot;')})">
+           onclick="addToCart(${pJson})">
         <div class="prod-img-wrap">
           ${imgHtml}
-          <div class="prod-badge" id="cb-${p.id}">${qty}</div>
+          <div class="prod-badge" id="cb-${p.id}">
+            <button class="badge-minus" onclick="event.stopPropagation();decCart(${pJson})">−</button>
+            <span class="badge-qty">${qty}</span>
+          </div>
           <div class="prod-ripple"></div>
         </div>
         <div class="prod-info">
           <div class="prod-name">${esc(p.name)}</div>
           <div class="prod-price-row">
             <span class="prod-price">${parseFloat(p.price).toFixed(2)}</span>
-            <span class="prod-cur">ج</span>
+            <span class="prod-cur">${esc(CURRENCY)}</span>
           </div>
         </div>
       </div>`;
@@ -358,6 +372,15 @@ function addToCart(p){
   refreshCardBadge(p);
 }
 
+function decCart(p){
+  const item=cart.find(i=>i.barcode===p.barcode);
+  if(!item)return;
+  item.qty--;
+  if(item.qty<=0) cart=cart.filter(i=>i.barcode!==p.barcode);
+  updateBar();
+  refreshCardBadge(p);
+}
+
 function refreshCardBadge(p){
   const card=document.getElementById('pc-'+p.id);
   const badge=document.getElementById('cb-'+p.id);
@@ -365,7 +388,7 @@ function refreshCardBadge(p){
   const item=cart.find(i=>i.barcode===p.barcode);
   if(item&&item.qty>0){
     card.classList.add('in-cart');
-    badge.textContent=item.qty;
+    badge.querySelector('.badge-qty').textContent=item.qty;
   } else {
     card.classList.remove('in-cart');
   }

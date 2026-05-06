@@ -1,7 +1,9 @@
 <?php
 require_once __DIR__ . '/auth.php';
 requireLogin();
+require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/db.php';
+$cur = defined('CURRENCY_LABEL') ? CURRENCY_LABEL : 'ج';
 
 $db = getDB();
 
@@ -125,7 +127,7 @@ $stats = $db->query('SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as revenue F
     </div>
     <div class="stat-card">
       <div class="stat-label">إجمالي المبيعات</div>
-      <div class="stat-val green"><?= number_format($stats['revenue'],2) ?> ج</div>
+      <div class="stat-val green"><?= number_format($stats['revenue'],2) ?> <?= htmlspecialchars($cur) ?></div>
     </div>
     <div class="stat-card">
       <div class="stat-label">الصفحة</div>
@@ -144,7 +146,7 @@ $stats = $db->query('SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as revenue F
       <span class="order-id">#<?= $o['id'] ?></span>
       <span class="order-date">🕒 <?= $o['created_at'] ?></span>
       <span class="order-items-count"><?= $itemCount ?> قطعة</span>
-      <span class="order-total"><?= number_format($o['total'],2) ?> ج</span>
+      <span class="order-total"><?= number_format($o['total'],2) ?> <?= htmlspecialchars($cur) ?></span>
       <span class="arrow" id="arr-<?= $o['id'] ?>">▼</span>
       <button class="btn-del" onclick="event.stopPropagation();delOrder(<?= $o['id'] ?>)">حذف</button>
     </div>
@@ -153,8 +155,8 @@ $stats = $db->query('SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as revenue F
       <div class="oi">
         <span class="oi-name"><?= htmlspecialchars($it['name']) ?></span>
         <span class="oi-qty">× <?= $it['qty'] ?></span>
-        <span class="oi-price"><?= number_format($it['price'],2) ?> ج</span>
-        <span class="oi-total"><?= number_format($it['price']*$it['qty'],2) ?> ج</span>
+        <span class="oi-price"><?= number_format($it['price'],2) ?> <?= htmlspecialchars($cur) ?></span>
+        <span class="oi-total"><?= number_format($it['price']*$it['qty'],2) ?> <?= htmlspecialchars($cur) ?></span>
       </div>
       <?php endforeach ?>
       <?php if($o['notes']): ?>

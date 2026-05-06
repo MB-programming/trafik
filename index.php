@@ -248,7 +248,7 @@ function faIcon(string $cls, string $extra=''): string {
                 <?= htmlspecialchars($p['category']) ?>
               </span>
             </td>
-            <td class="price"><?= number_format($p['price'],2) ?> ج</td>
+            <td class="price"><?= number_format($p['price'],2) ?> <?= htmlspecialchars(defined('CURRENCY_LABEL')?CURRENCY_LABEL:'ج') ?></td>
             <td><div class="acts">
               <button class="btn btn-e" onclick="openEdit(<?= htmlspecialchars(json_encode($p,JSON_UNESCAPED_UNICODE)) ?>)">
                 <i class="fa-solid fa-pen"></i> تعديل
