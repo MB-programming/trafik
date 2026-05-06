@@ -5,10 +5,11 @@ import anthropic
 from flask import Flask, render_template, request, redirect, url_for, jsonify
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 app = Flask(__name__)
-DB_PATH = os.path.join(os.path.dirname(__file__), "products.db")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH  = os.path.join(BASE_DIR, "products.db")
 
 CATEGORIES = ["غذائية", "سجاير", "مشروبات", "منوعات"]
 
