@@ -235,12 +235,20 @@ function reset(){
 
 /* ── Fullscreen ── */
 function toggleFS(){
-  if(!document.fullscreenElement) document.documentElement.requestFullscreen();
-  else document.exitFullscreen();
+  if(!document.fullscreenElement){
+    document.documentElement.requestFullscreen();
+    sessionStorage.setItem('fs','1');
+  } else {
+    document.exitFullscreen();
+    sessionStorage.removeItem('fs');
+  }
 }
 document.addEventListener('fullscreenchange',()=>{
-  document.getElementById('fsIcon').className=document.fullscreenElement?'fa-solid fa-compress':'fa-solid fa-expand';
+  const ic=document.getElementById('fsIcon');
+  if(ic) ic.className=document.fullscreenElement?'fa-solid fa-compress':'fa-solid fa-expand';
+  if(!document.fullscreenElement) sessionStorage.removeItem('fs');
 });
+if(sessionStorage.getItem('fs')==='1') document.documentElement.requestFullscreen().catch(()=>{});
 
 updateDisplay();
 </script>

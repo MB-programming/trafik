@@ -284,11 +284,12 @@ async function askGemini(imageBase64){
   const list = PRODUCTS.map((p,i)=>`${i+1}. ${p.name}`).join('\n');
 
   const prompt =
-    `أمامك صورة لمنتج.\n` +
-    `من القائمة التالية فقط، ما هو المنتج الذي يظهر في الصورة؟\n\n` +
+    `أمامك صورة لمنتج من متجر.\n` +
+    `انظر إلى شكل المنتج وبراندة وتغليفه، ثم قارنه بالقائمة التالية.\n\n` +
     `القائمة:\n${list}\n\n` +
-    `أجب برقم المنتج فقط (مثال: 3) إذا تعرفت عليه، أو أجب بالرقم 0 إذا لم يكن المنتج في القائمة.` +
-    ` لا تكتب أي شيء آخر غير الرقم.`;
+    `أجب برقم المنتج من القائمة فقط (مثال: 3) إذا تعرفت عليه أو وجدت ما يشابهه.\n` +
+    `أجب بالرقم 0 فقط إذا لم يكن هناك أي تشابه إطلاقاً.\n` +
+    `لا تكتب أي شيء آخر غير رقم واحد.`;
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`;
   const payload = {
@@ -300,8 +301,10 @@ async function askGemini(imageBase64){
   };
   const r = await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   const d = await r.json();
-  const raw = d.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '0';
-  const idx = parseInt(raw, 10);
+  const raw = d.candidates?.[0]?.content?.parts?.[0]?.text || '0';
+  // extract first number from response (handles "3." "٣" " 3 " etc.)
+  const match = raw.match(/\d+/);
+  const idx = match ? parseInt(match[0], 10) : 0;
   if(isNaN(idx)||idx===0) return null;
   return PRODUCTS[idx-1] || null; // 1-based index
 }
@@ -377,12 +380,20 @@ async function startCamera(){
 
 /* ── Fullscreen ── */
 function toggleFS(){
-  if(!document.fullscreenElement) document.documentElement.requestFullscreen();
-  else document.exitFullscreen();
+  if(!document.fullscreenElement){
+    document.documentElement.requestFullscreen();
+    sessionStorage.setItem('fs','1');
+  } else {
+    document.exitFullscreen();
+    sessionStorage.removeItem('fs');
+  }
 }
 document.addEventListener('fullscreenchange',()=>{
-  document.getElementById('fsIcon').className=document.fullscreenElement?'fa-solid fa-compress':'fa-solid fa-expand';
+  const ic=document.getElementById('fsIcon');
+  if(ic) ic.className=document.fullscreenElement?'fa-solid fa-compress':'fa-solid fa-expand';
+  if(!document.fullscreenElement) sessionStorage.removeItem('fs');
 });
+if(sessionStorage.getItem('fs')==='1') document.documentElement.requestFullscreen().catch(()=>{});
 
 startCamera();
 </script>

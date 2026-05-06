@@ -619,6 +619,7 @@ async function delCategory(id,name){
   document.getElementById('cat-'+id)?.remove();
   showToast('تم الحذف');
 }
+if(sessionStorage.getItem('fs')==='1') document.documentElement.requestFullscreen().catch(()=>{});
 </script>
 </body>
 </html>

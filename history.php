@@ -196,6 +196,7 @@ async function delOrder(id){
   await fetch('api.php',{method:'POST',body:fd});
   document.querySelector(`[onclick="toggle(${id})"]`)?.closest('.order-card')?.remove();
 }
+if(sessionStorage.getItem('fs')==='1') document.documentElement.requestFullscreen().catch(()=>{});
 </script>
 </body>
 </html>

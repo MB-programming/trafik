@@ -58,13 +58,6 @@ $currency = defined('CURRENCY_LABEL') ? CURRENCY_LABEL : 'ج';
       font-size:.95rem;transition:.15s;background:#f8fafc;
     }
     .search-wrap input:focus{border-color:var(--primary);background:#fff;outline:none}
-    .scan-btn{
-      width:42px;height:42px;background:var(--primary);color:#fff;
-      border:none;border-radius:10px;font-size:1rem;cursor:pointer;
-      display:flex;align-items:center;justify-content:center;flex-shrink:0;
-    }
-    .scan-btn:hover{background:var(--primary-dark)}
-    .scan-btn:active{transform:scale(.93)}
 
     /* ── Category strip ── */
     .cat-strip{
@@ -123,23 +116,26 @@ $currency = defined('CURRENCY_LABEL') ? CURRENCY_LABEL : 'ج';
       font-size:2.8rem;color:#cbd5e1;
     }
 
-    /* badge */
+    /* badge + minus */
     .prod-badge{
       position:absolute;top:7px;left:7px;
       background:var(--success);color:#fff;
-      border-radius:20px;padding:0 4px 0 0;
-      font-size:.78rem;font-weight:800;
+      border-radius:20px;padding:3px 10px;
+      font-size:.82rem;font-weight:800;
       display:none;box-shadow:0 2px 6px rgba(0,0,0,.25);
-      align-items:center;gap:0;overflow:hidden;
     }
-    .prod-card.in-cart .prod-badge{display:flex}
-    .badge-minus{
-      background:rgba(0,0,0,.2);border:none;color:#fff;
-      padding:4px 8px;font-size:.95rem;line-height:1;
-      cursor:pointer;font-weight:900;flex-shrink:0;
+    .prod-card.in-cart .prod-badge{display:block}
+    .prod-minus{
+      position:absolute;bottom:7px;left:7px;
+      background:#dc2626;color:#fff;
+      border:none;border-radius:9px;
+      width:34px;height:34px;
+      display:none;align-items:center;justify-content:center;
+      font-size:1.2rem;font-weight:900;cursor:pointer;
+      box-shadow:0 2px 8px rgba(0,0,0,.3);
     }
-    .badge-minus:active{background:rgba(0,0,0,.4)}
-    .badge-qty{padding:0 8px;font-size:.82rem}
+    .prod-card.in-cart .prod-minus{display:flex}
+    .prod-minus:active{background:#b91c1c;transform:scale(.9)}
 
     .prod-ripple{
       position:absolute;inset:0;
@@ -194,13 +190,6 @@ $currency = defined('CURRENCY_LABEL') ? CURRENCY_LABEL : 'ج';
     /* ── Scanner modal ── */
     .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:100;align-items:center;justify-content:center;padding:12px}
     .overlay.open{display:flex}
-    .scan-modal{background:var(--card);border-radius:16px;padding:15px;width:min(340px,95vw);box-shadow:0 10px 35px rgba(0,0,0,.25)}
-    .scan-modal-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-    .scan-modal-hdr h3{font-size:.97rem;font-weight:700;display:flex;align-items:center;gap:7px}
-    #scanV{width:100%;border-radius:10px;background:#000;display:block;max-height:280px;object-fit:cover}
-    #scanC{display:none}
-    .btn-close-scan{background:#f1f5f9;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:.85rem;font-weight:600;margin-top:9px;width:100%;display:flex;align-items:center;justify-content:center;gap:6px}
-
     /* ── Toast ── */
     .toast{
       position:fixed;bottom:100px;left:50%;transform:translateX(-50%);
@@ -228,12 +217,9 @@ $currency = defined('CURRENCY_LABEL') ? CURRENCY_LABEL : 'ج';
 <div class="searchbar">
   <div class="search-wrap">
     <i class="fa-solid fa-magnifying-glass"></i>
-    <input type="text" id="searchIn" placeholder="ابحث بالاسم أو الباركود..."
+    <input type="text" id="searchIn" placeholder="ابحث بالاسم..."
            oninput="search(this.value)" onkeydown="if(event.key==='Enter')addFirst()"/>
   </div>
-  <button class="scan-btn" onclick="openScanner()" title="مسح باركود">
-    <i class="fa-solid fa-camera"></i>
-  </button>
 </div>
 
 <!-- Category tabs -->
@@ -274,26 +260,11 @@ $currency = defined('CURRENCY_LABEL') ? CURRENCY_LABEL : 'ج';
   </button>
 </div>
 
-<!-- Scanner overlay -->
-<div class="overlay" id="scanOverlay">
-  <div class="scan-modal">
-    <div class="scan-modal-hdr">
-      <h3><i class="fa-solid fa-camera"></i> امسح الباركود</h3>
-    </div>
-    <video id="scanV" autoplay playsinline muted></video>
-    <canvas id="scanC"></canvas>
-    <button class="btn-close-scan" onclick="closeScanner()">
-      <i class="fa-solid fa-xmark"></i> إغلاق
-    </button>
-  </div>
-</div>
-
 <div class="toast" id="toast"></div>
 
-<script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
 <script>
 const CURRENCY = <?= json_encode($currency) ?>;
-let cart=[], currentCat='', allProducts=[], searchTimer=null, scanStream=null;
+let cart=[], currentCat='', allProducts=[], searchTimer=null;
 
 /* ── Helpers ── */
 function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -335,10 +306,8 @@ function renderGrid(products){
            onclick="addToCart(${pJson})">
         <div class="prod-img-wrap">
           ${imgHtml}
-          <div class="prod-badge" id="cb-${p.id}">
-            <button class="badge-minus" onclick="event.stopPropagation();decCart(${pJson})">−</button>
-            <span class="badge-qty">${qty}</span>
-          </div>
+          <div class="prod-badge" id="cb-${p.id}">${qty}</div>
+          <button class="prod-minus" id="cm-${p.id}" onclick="event.stopPropagation();decCart(${pJson})">−</button>
           <div class="prod-ripple"></div>
         </div>
         <div class="prod-info">
@@ -389,7 +358,7 @@ function refreshCardBadge(p){
   const item=cart.find(i=>i.barcode===p.barcode);
   if(item&&item.qty>0){
     card.classList.add('in-cart');
-    badge.querySelector('.badge-qty').textContent=item.qty;
+    badge.textContent=item.qty;
   } else {
     card.classList.remove('in-cart');
   }
@@ -426,59 +395,22 @@ async function pay(){
   }
 }
 
-/* ── Barcode scanner ── */
-async function openScanner(){
-  document.getElementById('scanOverlay').classList.add('open');
-  try{
-    scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280}}});
-    const v=document.getElementById('scanV'); v.srcObject=scanStream;
-    const hints=new Map([
-      [ZXing.DecodeHintType.POSSIBLE_FORMATS,[ZXing.BarcodeFormat.EAN_13,ZXing.BarcodeFormat.EAN_8,ZXing.BarcodeFormat.CODE_128,ZXing.BarcodeFormat.CODE_39,ZXing.BarcodeFormat.UPC_A,ZXing.BarcodeFormat.UPC_E]],
-      [ZXing.DecodeHintType.TRY_HARDER,true]
-    ]);
-    const reader=new ZXing.BrowserMultiFormatReader(hints);
-    const c=document.getElementById('scanC'); const ctx=c.getContext('2d');
-    let lastBC=null;
-    function tick(){
-      if(!scanStream)return;
-      if(v.readyState>=2){
-        c.width=v.videoWidth;c.height=v.videoHeight;ctx.drawImage(v,0,0);
-        try{
-          const img=ctx.getImageData(0,0,c.width,c.height);
-          const lum=new ZXing.RGBLuminanceSource(img.data,c.width,c.height);
-          const bmp=new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(lum));
-          const r=reader.decodeBitmap(bmp);
-          if(r&&r.getText()!==lastBC){lastBC=r.getText();lookupAndAdd(lastBC)}
-        }catch(_){}
-      }
-      requestAnimationFrame(tick);
-    }
-    v.addEventListener('loadedmetadata',()=>requestAnimationFrame(tick));
-  }catch(e){showToast('تعذّر فتح الكاميرا',false);closeScanner()}
-}
-
-function closeScanner(){
-  if(scanStream){scanStream.getTracks().forEach(t=>t.stop());scanStream=null}
-  document.getElementById('scanOverlay').classList.remove('open');
-}
-
-async function lookupAndAdd(bc){
-  const r=await fetch('api.php?action=lookup&barcode='+encodeURIComponent(bc));
-  const d=await r.json();
-  if(d.found){addToCart(d);closeScanner()}
-  else showToast('الباركود غير موجود',false);
-}
-
-document.getElementById('scanOverlay').addEventListener('click',function(e){if(e.target===this)closeScanner()});
-
 /* ── Fullscreen ── */
 function toggleFS(){
-  if(!document.fullscreenElement) document.documentElement.requestFullscreen();
-  else document.exitFullscreen();
+  if(!document.fullscreenElement){
+    document.documentElement.requestFullscreen();
+    sessionStorage.setItem('fs','1');
+  } else {
+    document.exitFullscreen();
+    sessionStorage.removeItem('fs');
+  }
 }
 document.addEventListener('fullscreenchange',()=>{
-  document.getElementById('fsIcon').className=document.fullscreenElement?'fa-solid fa-compress':'fa-solid fa-expand';
+  const ic=document.getElementById('fsIcon');
+  if(ic) ic.className=document.fullscreenElement?'fa-solid fa-compress':'fa-solid fa-expand';
+  if(!document.fullscreenElement) sessionStorage.removeItem('fs');
 });
+if(sessionStorage.getItem('fs')==='1') document.documentElement.requestFullscreen().catch(()=>{});
 
 loadProducts('','');
 </script>
